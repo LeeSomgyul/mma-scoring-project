@@ -1,6 +1,11 @@
 spring:
   application:
     name: backend
+  mvc:
+    cors:
+      allowed-origins: "http://localhost:5174"
+      allowed-methods: GET,POST
+      allowed-headers: "*"
 
   datasource:
     url: jdbc:mysql://localhost:3306/mma_scoring_dev?serverTimezone=UTC&characterEncoding=UTF-8
