@@ -16,8 +16,15 @@ const JudgePage: React.FC = () => {
   }
 
   const [stompClient, setStompClient] = useState<Client | null>(null);
-  const [scores, setScores] = useState(Array.from({length: matchInfo.roundCount}, () => ({ red: "", blue: "" })));
-  const [submitted, setSubmitted] = useState(Array.from({length: matchInfo.roundCount}, () => false));
+  const [scores, setScores] = useState(
+    Array.from({length: matchInfo.roundCount}, () => ({ red: "", blue: "" }))
+  );
+  const [submitted, setSubmitted] = useState(
+    Array.from({length: matchInfo.roundCount}, () => false)
+  );
+  const [editing, setEditing] = useState(
+    Array.from({ length: matchInfo.roundCount }, () => false)
+  );
 
 
   //✅ WebSocket 연결결
@@ -53,7 +60,7 @@ const JudgePage: React.FC = () => {
       },
 
       onDisconnect: () => {
-        console.log("🔌 STOMP 연결 종료");
+        console.log("🚫 STOMP 연결 종료");
       },
     });
 
@@ -85,6 +92,31 @@ const JudgePage: React.FC = () => {
   const handleSubmit = (roundIndex: number) => {
     const { red, blue } = scores[roundIndex];
 
+    if(editing[roundIndex]){
+      //🔴 수정 완료 시
+      const result = {
+        round: roundIndex + 1,
+        redScore: red,
+        blueScore: blue,
+        jdugeId: "judge1"//🔥🔥🔥 나중에 수정 예정정
+      };
+
+      if(stompClient && stompClient.connected){
+        stompClient.publish({
+          destination: "/app/send",
+          body: JSON.stringify(result)
+        });
+        console.log(`📤 ${roundIndex + 1}라운드 점수 수정 재전송:`, result);
+        alert("수정 완료!");
+        const newEditing = [...editing];
+        newEditing[roundIndex] = false;
+        setEditing(newEditing);
+      }else{
+        alert("❌ 서버와 연결되지 않았습니다.");
+      }
+      return;
+    }
+
     if(red === "" || blue === ""){
       alert("점수를 모두 입력해주세요!");
       return;
@@ -109,10 +141,22 @@ const JudgePage: React.FC = () => {
       const newSubmitted = [...submitted];
       newSubmitted[roundIndex] = true;
       setSubmitted(newSubmitted);
+
+      const newEditing = [...editing];
+      newEditing[roundIndex] = false;
+      setEditing(newEditing);
     }else{
       alert("❌ 서버와 연결되지 않았습니다.");
     }
   };
+
+  //✅ 수정하기 버튼 함수
+  const handleEdit = (roundIndex: number) => {
+    const newEditing = [...editing];
+    newEditing[roundIndex] = true;
+    setEditing(newEditing);
+  };
+
 
   return (
     <div>
@@ -129,15 +173,23 @@ const JudgePage: React.FC = () => {
               type="number"
               value={scores[i].red}
               onChange={(e) => handleScoreChange(i, "red", e.target.value)}
+              disabled={!editing[i] && submitted[i]}
             />
             <input 
               type="number"
               value={scores[i].blue}
               onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
+              disabled={!editing[i] && submitted[i]}
             />
-            <button onClick={() => handleSubmit(i)}>
-              {submitted[i] ? "수정" : "전송"}
-            </button>
+            {submitted[i] && !editing[i] ? (
+              <button onClick={() => handleEdit(i)}>
+                수정
+              </button>
+            ):(
+              <button onClick={() => handleSubmit(i)}>
+                {submitted[i] ? "재전송" : "전송"}
+              </button>
+            )}
           </div>
         ))}
       </div>
