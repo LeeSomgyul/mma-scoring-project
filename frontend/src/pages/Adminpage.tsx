@@ -1,5 +1,7 @@
 import React, {useEffect, useState} from "react";
 import axios from "axios";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 
 interface Match {
     id: number;
@@ -29,6 +31,40 @@ const Adminpage: React.FC = () => {
         .catch((error) => {
             console.log("❌ 경기 목록 불러오기 실패:", error);
         });
+
+        //✅ WebSocket 연결
+        const socket = new SockJS("/ws");
+        const stompClient = new Client({
+            webSocketFactory: () => socket,
+            reconnectDelay: 5000,
+            onConnect: () => {
+                console.log("✅ 본부석 WebSocket 연결 완료");
+                
+                //🔴 서버에서 점수 받기
+                stompClient.subscribe("/topic/messages", (message) => {
+                    try{
+                        const parsed = JSON.parse(message.body);
+                        console.log("📩 본부석이 받은 점수 메시지:", parsed);
+                    }catch(e){
+                        console.error("❌ 메시지 json 변경 실패:", e);
+                    }
+                });
+            },
+
+            onStompError: (frame) => {
+                console.error("❌ STOMP 에러:", frame.headers["message"]);
+            },
+
+            onWebSocketError: (event) => {
+                console.error("❌ WebSocket 에러:", event);
+            }
+        });
+
+        stompClient.activate();
+
+        return () => {
+            stompClient.deactivate();
+        };
     }, []);
 
     //✅ 다음 경기로 전환

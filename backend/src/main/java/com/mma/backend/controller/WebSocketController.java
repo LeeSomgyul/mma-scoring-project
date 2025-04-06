@@ -11,8 +11,10 @@ import org.springframework.stereotype.Controller;
 @Slf4j
 @RequiredArgsConstructor
 public class WebSocketController {
+
     private final SimpMessagingTemplate messagingTemplate;
 
+    //🔴심판이 보낸 점수 --(서버: 여기 백엔드)--> 본부석에 점수 전달
     @MessageMapping("/send")
     public void receiveMessage(String message) {
         log.info("📥 서버가 받은 메시지: {}", message);
