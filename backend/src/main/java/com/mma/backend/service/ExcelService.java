@@ -14,6 +14,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ExcelService {
 
+    private final MatchesService matchesService;
     private final MatchesRepository matchesRepository;
 
     //✅ 엑셀 파일 받아오는 기능
@@ -58,7 +59,6 @@ public class ExcelService {
 
         //🔴관리자에게 엑셀 업로드 결과 보낼 배열
         List<String> resultLog = new ArrayList<>();
-        List<Matches> matchesToSave = new ArrayList<>();
         Set<Integer> seenMatchNumbers = new HashSet<>();
         boolean hasError = false;
 
@@ -89,7 +89,7 @@ public class ExcelService {
                 matches.setBlueName(getStringCell(row.getCell(columnIndex.get("blueName")), "블루선수", i, columnIndex.get("blueName")));
                 matches.setBlueGym(getStringCell(row.getCell(columnIndex.get("blueGym")), "블루소속", i, columnIndex.get("blueGym")));
 
-                matchesToSave.add(matches);
+                matchesService.saveMatch(matches);
                 resultLog.add((i + 1) + "행: ✅ 업로드 성공");
             }catch(Exception e){
                 hasError = true;
@@ -102,9 +102,7 @@ public class ExcelService {
         if(hasError){
             resultLog.add("오류가 발생하여 업로드가 중단되었습니다. 모든 오류를 수정한 후 다시 시도해 주세요.");
         }else{
-            matchesRepository.saveAll(matchesToSave);
-            resultLog.clear();
-            resultLog.add("✅ 전체 " + matchesToSave.size() + "개 업로드 완료!");
+            resultLog.add("✅ 전체 " + seenMatchNumbers.size() + "개 업로드 완료!");
         }
 
         return resultLog;
