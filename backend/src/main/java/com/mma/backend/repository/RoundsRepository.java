@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface RoundsRepository extends JpaRepository<Rounds, Long> {
-    List<Rounds> findByMatchId(Long matchId);
+    List<Rounds> findByMatches_Id(Long matchId);
 }
