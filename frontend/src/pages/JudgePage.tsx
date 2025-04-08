@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import SockJS from "sockjs-client";
 import axios from "axios";
 import { Client } from "@stomp/stompjs";
+import { useParams, useSearchParams } from "react-router-dom";
 
 interface MatchInfo {
   id: number; // 🔥 라운드 ID 매핑용
@@ -20,6 +21,50 @@ const JudgePage: React.FC = () => {
   const [scores, setScores] = useState<{ red: string; blue: string }[]>([]);
   const [submitted, setSubmitted] = useState<boolean[]>([]);
   const [editing, setEditing] = useState<boolean[]>([]);
+  const [name, setName] = useState<string>("");
+  const [inputPassword, setInputPassword] = useState<string>("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  const baseURL = import.meta.env.VITE_API_BASE_URL;
+  const accessCode = searchParams.get("accessCode");
+  
+
+  //✅ 비밀번호 검증 버튼
+  const handleVerify = async() => {
+    
+
+    console.log("입력된 비번:", inputPassword);
+    console.log("accessCode:", accessCode);
+
+
+    if(!name || !inputPassword){
+      alert("이름과 비밀번호를 모두 입력해주세요.");
+      return;
+    }
+
+    if (!accessCode) {
+      alert("접속 코드(accessCode)가 유효하지 않습니다.");
+      return;
+    }
+
+    try{
+      const response = await axios.post(`${baseURL}/api/judge-access/verify`, {
+        password: inputPassword,
+        accessCode
+      });
+
+      if(response.data === true){
+        alert("✅ 인증 성공!");
+        setIsVerified(true);
+      }else{
+        alert("❌ 비밀번호가 일치하지 않습니다.");
+      }
+    }catch(error){
+      console.error("❌ 인증 오류:", error);
+      alert("서버 오류가 발생했습니다.");
+    }
+  }
 
   // ✅ WebSocket 연결
   useEffect(() => {
@@ -107,10 +152,10 @@ const JudgePage: React.FC = () => {
     }
 
     const result = {
-      roundId: roundIndex + 1, // 🔥 실제 roundId로 교체 필요
+      roundId: roundIndex + 1, // 🔥🔥🔥 실제 roundId로 교체 필요
       redScore: parseInt(red),
       blueScore: parseInt(blue),
-      judgeId: "judge-device-1", // 🔥 실제 deviceId로 교체 필요
+      judgeId: name,//🔥🔥🔥 점검 필요요
     };
 
     if (stompClient && stompClient.connected) {
@@ -119,7 +164,6 @@ const JudgePage: React.FC = () => {
         body: JSON.stringify(result),
       });
 
-      console.log(`📤 ${roundIndex + 1}라운드 점수 전송:`, result);
 
       const newSubmitted = [...submitted];
       newSubmitted[roundIndex] = true;
@@ -148,7 +192,25 @@ const JudgePage: React.FC = () => {
 
   return (
     <div>
-      {matchInfo ? (
+      {!isVerified ? (
+        <div>
+          <h3>🧑‍⚖️ 심판 입장</h3>
+          <input
+            type="text"
+            placeholder="이름을 입력하세요."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="비밀번호 입력 (숫자 4자리)"
+            value={inputPassword}
+            onChange={(e) => setInputPassword(e.target.value)}
+            maxLength={4}
+          />
+          <button onClick={handleVerify}>입장하기</button>
+        </div>
+      ) : matchInfo ? (
         <>
           <div>{matchInfo.matchNumber}경기 {matchInfo.division}</div>
           <div>

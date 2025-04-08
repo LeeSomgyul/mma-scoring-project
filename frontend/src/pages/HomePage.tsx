@@ -11,7 +11,6 @@ const HomePage: React.FC = () => {
             <h2>아래에서 역할을 선택해주세요.</h2>
             <div>
                 <button onClick={() => navigate("/admin")}>👨‍💼 본부석 입장</button>
-                <button onClick={() => navigate("/judge")}>🧑‍⚖️ 심판 입장 (QR 전용)</button>
             </div>
         </div>
     );

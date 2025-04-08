@@ -3,6 +3,7 @@ import axios from "axios";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 import * as XLSX from "xlsx";
+import QRCode from "react-qr-code";
 
 interface Match {
     id: number;
@@ -25,8 +26,23 @@ const Adminpage: React.FC = () => {
     const [selectedSheet, setSelectedSheet] = useState<number | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFileUploaded, setIsFileUploaded] = useState(false);
+    const [showQR, setShowQR] = useState(false);
+    const [showQRButton, setShowQRButton] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [password, setPassword] = useState<string>("");
+    const [judgeCount, setJudgeCount] = useState<number>(3); //🔥🔥🔥 나중에 변경 예정
+    const [qrGenerated, setQrGenerated] = useState(false);
+    const [accessCode, setAccessCode] = useState("");
     
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const qrJudgeUrl = `${window.location.origin}/judge`; 
+
+    useEffect(() => {
+        if (qrGenerated && accessCode) {
+          const qrUrl = `${window.location.origin}/judge?accessCode=${accessCode}`;
+          console.log("✅ QR 코드에 들어갈 URL:", qrUrl);
+        }
+      }, [qrGenerated, accessCode]);
 
     //✅ 전체 경기 정보 불러오기
     const fetchMatches = () => {
@@ -80,6 +96,7 @@ const Adminpage: React.FC = () => {
                 headers: {"Content-Type": "multipart/form-data"},
             });
             setIsFileUploaded(true);
+            setShowQRButton(true);
             setIsModalOpen(false);
             fetchMatches();
         }catch(error){
@@ -146,6 +163,27 @@ const Adminpage: React.FC = () => {
         }
     };
 
+    //✅ 관리자 비밀번호 지정 시 저장
+    const handleSavePassword = async () => {
+        if(password.length !== 4){
+            alert("비밀번호는 숫자 4자리여야 합니다.");
+            return;
+        }
+
+        try{
+            const response = await axios.post(`${baseURL}/api/judge-access/password`, { password });
+            const accessCode = response.data.accessCode;
+            setAccessCode(accessCode);
+            setShowQR(true);
+            setShowPasswordModal(false);
+            setQrGenerated(true);
+            alert("✅ 비밀번호 등록 완료!");
+        }catch(error){
+            console.error("❌ 비밀번호 등록 실패:", error);
+            alert("❌ 비밀번호 등록 중 오류 발생");
+        }
+    };
+
     const current = matches[currentIndex];
 
     return(
@@ -186,6 +224,45 @@ const Adminpage: React.FC = () => {
                 </>
             ) : (
                 <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
+            )}
+
+            {showQRButton && (
+                <div>
+                    <button onClick={() => setShowPasswordModal(true)}>📱 심판용 QR 코드 생성</button>
+                </div>
+            )}
+
+            {showPasswordModal && (
+                <div>
+                    <h3>🛡️ 심판 비밀번호 설정</h3>
+                    <label>심판 수: </label>
+                    <input
+                        type="number"
+                        value={judgeCount}
+                        onChange={(e) => setJudgeCount(Number(e.target.value))}
+                    />
+                    <label>비밀번호: </label>
+                    <input
+                        type="text"
+                        value={password}
+                        onChange={(e) => {
+                            const input = e.target.value;
+                            if(/^\d{0,4}$/.test(input)){
+                                setPassword(input);
+                            }
+                        }}
+                        placeholder="숫자 4자리 입력력"
+                        maxLength={4}
+                    />
+                    <button onClick={handleSavePassword}>비밀번호 등록 및 QR 생성</button>
+                </div>
+            )}
+
+            {qrGenerated && (
+                <div>
+                    <QRCode value={`${window.location.origin}/judge?accessCode=${accessCode}`} size={180} />
+                    <div>📷 심판이 QR을 스캔하면 입장할 수 있어요</div>
+                </div>
             )}
         </div>
     );

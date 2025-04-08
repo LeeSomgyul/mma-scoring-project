@@ -34,4 +34,11 @@ public class JudgeController {
     public List<Judges> getAllJudges() {
         return judgesService.getAllJudges();
     }
+
+    //✅ 심판용 UUID 여러 개 생성
+    @PostMapping("/generate")
+    public ResponseEntity<List<String>> generateJudgeUUIDs(@RequestParam int count) {
+        List<String> uuids = judgesService.generateJudges(count);
+        return ResponseEntity.ok(uuids);
+    }
 }

@@ -5,7 +5,9 @@ import com.mma.backend.repository.JudgesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +35,26 @@ public class JudgesService {
     //✅ 본부석에서 전체 심판 목록 확인 기능(연결 유무 상관없이)
     public List<Judges> getAllJudges() {
         return judgesRepository.findAll();
+    }
+
+    //✅ 심판용 UUID 여러 개 생성
+    public List<String> generateJudges(int count){
+        List<String> generatedIds = new ArrayList<>();
+
+        for(int i = 0; i < count; i++){
+            String uuid = UUID.randomUUID().toString();
+
+            Judges judges = Judges.builder()
+                    .devicedId(uuid)
+                    .name("")//🔥🔥🔥나중에 입장 시 입력하도록
+                    .isConnected(false)
+                    .build();
+
+            judgesRepository.save(judges);
+            generatedIds.add(uuid);
+        }
+
+        return generatedIds;
     }
 
 }
