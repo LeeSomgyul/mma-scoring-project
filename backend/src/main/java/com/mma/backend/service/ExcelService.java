@@ -19,6 +19,9 @@ public class ExcelService {
 
     //✅ 엑셀 파일 받아오는 기능
     public List<String> saveMatchesFromExcel(MultipartFile file, int userSheetNumber) throws Exception {
+
+        System.out.println("📥 업로드 받은 파일: " + file.getOriginalFilename() + ", sheet: " + userSheetNumber);
+
         int sheetIndex = userSheetNumber - 1;
         Workbook workbook = new XSSFWorkbook(file.getInputStream());
 

@@ -2,6 +2,7 @@ package com.mma.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -40,10 +41,6 @@ public class Matches {
     private String blueGym;
 
     @Column(name = "created_at")
+    @CreationTimestamp
     private LocalDateTime createdAt;
-
-    @PrePersist
-    public void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
 }

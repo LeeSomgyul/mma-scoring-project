@@ -24,6 +24,9 @@ public class MatchesController {
     public ResponseEntity<List<String>> uploadExcel(
             @RequestParam("file") MultipartFile file,
             @RequestParam("sheet") int userSheetNumber){
+
+        System.out.println("📥 업로드 받은 파일: " + file.getOriginalFilename() + ", sheet: " + userSheetNumber);
+
         try{
             List<String> resultLog = excelService.saveMatchesFromExcel(file, userSheetNumber);
             return ResponseEntity.ok(resultLog);
