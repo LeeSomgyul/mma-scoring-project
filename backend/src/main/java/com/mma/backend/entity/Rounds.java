@@ -1,5 +1,6 @@
 package com.mma.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,7 +19,8 @@ public class Rounds {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "match_id")
-    private Matches matches;
+    @JsonBackReference
+    private Matches match;
 
     @Column(name = "round_number", nullable = false)
     private int roundNumber;
@@ -33,4 +35,5 @@ public class Rounds {
     public enum WinnerCorner {
         RED, BLUE, DRAW
     }
+
 }

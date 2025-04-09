@@ -2,11 +2,13 @@ package com.mma.backend.service;
 
 import com.mma.backend.entity.Judges;
 import com.mma.backend.repository.JudgesRepository;
+import com.mma.backend.repository.RoundsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -17,11 +19,21 @@ public class JudgesService {
 
     //✅ 심판 입장 시 정보 등록하는 기능
     public Judges registerJudge(String name, String deviceId) {
-        return judgesRepository.save(Judges.builder()
-                .name(name)
-                .devicedId(deviceId)
-                .isConnected(true)
-                .build());
+        Optional<Judges> existingJudge = judgesRepository.findByDevicedId(deviceId);
+
+        Judges judge;
+        if(existingJudge.isPresent()) {
+            judge = existingJudge.get();
+            judge.setConnected(true);
+        }else{
+            judge = Judges.builder()
+                    .name(name)
+                    .devicedId(deviceId)
+                    .isConnected(true)
+                    .build();
+        }
+
+        return judgesRepository.save(judge);
     }
 
     //✅ 심판의 연결 상태 업데이트(연결 끊길수도 있으니까 여부 확인)

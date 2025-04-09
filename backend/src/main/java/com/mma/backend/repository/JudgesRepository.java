@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface JudgesRepository extends JpaRepository<Judges, Long> {
     Optional<Judges> findByDevicedId(String deviceId);
+    int countByIsConnectedTrue();
 }

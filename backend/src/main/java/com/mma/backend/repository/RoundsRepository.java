@@ -6,9 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface RoundsRepository extends JpaRepository<Rounds, Long> {
-    List<Rounds> findByMatches_Id(Long matchId);
-    void deleteByMatches_Id(Long matchId);
+    List<Rounds> findByMatchId(Long matchId);
+    void deleteByMatchId(Long matchId);
+    Optional<Rounds> findByMatchAndRoundNumber(Matches matches, int roundNumber);
 }

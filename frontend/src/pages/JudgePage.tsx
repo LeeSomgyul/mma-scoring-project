@@ -2,10 +2,16 @@ import React, { useEffect, useState } from "react";
 import SockJS from "sockjs-client";
 import axios from "axios";
 import { Client } from "@stomp/stompjs";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { v4 as uuidv4 } from 'uuid'; 
+
+interface RoundInfo{
+  id: number;
+  roundNumber: number;
+}
 
 interface MatchInfo {
-  id: number; // 🔥 라운드 ID 매핑용
+  id: number;
   matchNumber: number;
   division: string;
   roundCount: number;
@@ -13,7 +19,18 @@ interface MatchInfo {
   blueName: string;
   redGym: string;
   blueGym: string;
+  rounds: RoundInfo[];
 }
+
+//✅ UUID생성 + 저장 함수
+const getOrCreateDeviceId = (): string => {
+  let deviceId = localStorage.getItem("judgeDeviceId");
+  if(!deviceId){
+    deviceId = uuidv4();
+    localStorage.setItem("judgeDeviceId", deviceId);
+  }
+  return deviceId;
+};
 
 const JudgePage: React.FC = () => {
   const [matchInfo, setMatchInfo] = useState<MatchInfo | null>(null);
@@ -33,11 +50,6 @@ const JudgePage: React.FC = () => {
   //✅ 비밀번호 검증 버튼
   const handleVerify = async() => {
     
-
-    console.log("입력된 비번:", inputPassword);
-    console.log("accessCode:", accessCode);
-
-
     if(!name || !inputPassword){
       alert("이름과 비밀번호를 모두 입력해주세요.");
       return;
@@ -55,6 +67,15 @@ const JudgePage: React.FC = () => {
       });
 
       if(response.data === true){
+        const deviceId = getOrCreateDeviceId();
+
+        await axios.post(`${baseURL}/api/judges`, null, {
+          params: {
+            name,
+            deviceId
+          }
+        });
+
         alert("✅ 인증 성공!");
         setIsVerified(true);
       }else{
@@ -79,11 +100,6 @@ const JudgePage: React.FC = () => {
 
         client.subscribe("/topic/messages", (message) => {
           console.log("📩 서버로부터 메시지:", message.body);
-        });
-
-        client.publish({
-          destination: "/app/send",
-          body: JSON.stringify({ test: "👋 심판이 서버에게 인사합니다!" }),
         });
       },
 
@@ -151,12 +167,21 @@ const JudgePage: React.FC = () => {
       return;
     }
 
+    const deviceId = localStorage.getItem("judgeDeviceId");
+
+    if (!deviceId) {
+      alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
+      return;
+    }
+
     const result = {
-      roundId: roundIndex + 1, // 🔥🔥🔥 실제 roundId로 교체 필요
+      roundId: matchInfo?.rounds?.[roundIndex]?.id,
       redScore: parseInt(red),
       blueScore: parseInt(blue),
-      judgeId: name,//🔥🔥🔥 점검 필요요
+      judgeId: deviceId,
     };
+
+    console.log("📤 보낼 점수 메시지:", result);
 
     if (stompClient && stompClient.connected) {
       stompClient.publish({

@@ -1,6 +1,7 @@
 package com.mma.backend.controller;
 
 import com.mma.backend.entity.Matches;
+import com.mma.backend.repository.MatchesRepository;
 import com.mma.backend.service.ExcelService;
 import com.mma.backend.service.MatchesService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import java.util.List;
 public class MatchesController {
 
     private final ExcelService excelService;
-    private final MatchesService matchesService;
+    private final MatchesRepository matchesRepository;
 
     //✅ 엑셀 파일 업로드
     @PostMapping("/upload")
@@ -38,7 +39,8 @@ public class MatchesController {
 
     //✅ 엑셀 파일 불러오기(경기 목록 조회)
     @GetMapping
-    public List<Matches> getAllMatches(){
-        return matchesService.getAllMatches();
+    public ResponseEntity<List<Matches>> getAllMatches(){
+        List<Matches> matches = matchesRepository.findAll();
+        return ResponseEntity.ok(matches);
     }
 }

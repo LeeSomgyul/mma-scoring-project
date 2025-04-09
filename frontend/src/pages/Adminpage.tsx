@@ -17,6 +17,13 @@ interface Match {
     createdAt: string;
 }
 
+interface ScoreResult {
+    roundId: number;
+    roundNumber: number;
+    red: number | null;
+    blue: number | null;
+}
+
 
 const Adminpage: React.FC = () => {
     const [matches, setMatches] = useState<Match[]>([]);
@@ -30,12 +37,18 @@ const Adminpage: React.FC = () => {
     const [showQRButton, setShowQRButton] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [password, setPassword] = useState<string>("");
+    const [isPasswordSet, setIsPasswordSet] = useState(false);
     const [judgeCount, setJudgeCount] = useState<number>(3); //🔥🔥🔥 나중에 변경 예정
     const [qrGenerated, setQrGenerated] = useState(false);
     const [accessCode, setAccessCode] = useState("");
-    
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
-    const qrJudgeUrl = `${window.location.origin}/judge`; 
+    //여러 라운드 점수를 배열 형식으로 저장
+    const [scoreResults, setScoreResults] = useState<ScoreResult[]>([]);
+    //레드선수, 블루선수 라운드별 합산 점수
+    const [totalRedScore, setTotalRedScore] = useState<number | null>(null);
+    const [totalBlueScore, setTotalBlueScore] = useState<number | null>(null);
+    const [scoreStatus, setScoreStatus] = useState<string>("⏳ 점수 대기 중...");
+
+    const baseURL = import.meta.env.VITE_API_BASE_URL;//전역으로 쓰이는 하드코딩
 
     useEffect(() => {
         if (qrGenerated && accessCode) {
@@ -55,6 +68,25 @@ const Adminpage: React.FC = () => {
                 console.log("❌ 경기 목록 불러오기 실패:", error);
             });
     };    
+
+    //✅ 초기 라운드 수만큼 점수 미리 채워두기
+    useEffect(() => {
+        if(matches.length > 0){
+            const currentMatch = matches[currentIndex];
+            
+            axios.get(`${baseURL}/api/rounds/match/${currentMatch.id}`)
+                .then((res) => {
+                    const roundList = res.data;
+                    const initialScores: ScoreResult[] = roundList.map((round: any) => ({
+                        roundId: round.id,
+                        roundNumber: round.roundNumber,
+                        red: null,
+                        blue: null,
+                    }));
+                    setScoreResults(initialScores);
+                })
+        }
+    }, [matches, currentIndex])
 
     //✅ input 엑셀 선택 기능
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,7 +163,21 @@ const Adminpage: React.FC = () => {
                 stompClient.subscribe("/topic/messages", (message) => {
                     try{
                         const parsed = JSON.parse(message.body);
-                        console.log("📩 본부석이 받은 점수 메시지:", parsed);
+                        console.log("✅ 받은 점수 전체 메시지:", parsed);
+                        
+                        if(parsed.status === "WAITING"){
+                            setScoreStatus("⏳ 점수 대기 중...");
+                        }else if(parsed.status === "COMPLETE"){
+                            setScoreResults((prev) =>
+                                prev.map((item) =>
+                                  item.roundId === parsed.roundId
+                                    ? { ...item, red: parsed.totalRed, blue: parsed.totalBlue }
+                                    : item
+                                )
+                              );
+                            setScoreStatus("✅ 합산 완료!");
+                            console.log("✅ 받은 점수:", parsed);
+                        }
                     }catch(e){
                         console.error("❌ 메시지 json 변경 실패:", e);
                     }
@@ -171,12 +217,25 @@ const Adminpage: React.FC = () => {
         }
 
         try{
+            //1️⃣ 심판 비밀번호 등록 요청청
             const response = await axios.post(`${baseURL}/api/judge-access/password`, { password });
             const accessCode = response.data.accessCode;
             setAccessCode(accessCode);
+
+            //2️⃣ match_progress 테이블 생성 요청
+            const currentMatch = matches[currentIndex];
+            await axios.post(`${baseURL}/api/progress/start`, null, {
+                params: {
+                    matchId: currentMatch.id,
+                    judgeCount: judgeCount
+                }
+            });
+
+
             setShowQR(true);
             setShowPasswordModal(false);
             setQrGenerated(true);
+            setIsPasswordSet(true);
             alert("✅ 비밀번호 등록 완료!");
         }catch(error){
             console.error("❌ 비밀번호 등록 실패:", error);
@@ -215,18 +274,23 @@ const Adminpage: React.FC = () => {
                         <span>{current.division}</span>
                     </div>
                     <div>{current.redName}({current.redGym}) | {current.blueName}({current.blueGym})</div>
-                    <div>
-                        {Array.from({length: current.roundCount}, (_, i) => (
-                        <div key={i}>{i+1}라운드</div>
-                        ))}
-                    </div>
+                    {scoreResults.map((result) => (
+                        <div key={result.roundId}>
+                        {result.roundNumber}라운드:{" "}
+                        {result.red !== null && result.blue !== null ? (
+                            <>{result.red}점 / {result.blue}점</>
+                        ) : (
+                            <>⏳ 점수 대기 중...</>
+                        )}
+                        </div>
+                    ))}
                     <button onClick={handleNext}>다음 경기👉</button>
                 </>
             ) : (
                 <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
             )}
 
-            {showQRButton && (
+            {showQRButton && !isPasswordSet && (
                 <div>
                     <button onClick={() => setShowPasswordModal(true)}>📱 심판용 QR 코드 생성</button>
                 </div>
@@ -262,7 +326,14 @@ const Adminpage: React.FC = () => {
                 <div>
                     <QRCode value={`${window.location.origin}/judge?accessCode=${accessCode}`} size={180} />
                     <div>📷 심판이 QR을 스캔하면 입장할 수 있어요</div>
+                    <button onClick={() => setQrGenerated(false)}>❌ QR 코드 닫기</button>
                 </div>
+            )}
+
+            {!qrGenerated && isPasswordSet && (
+            <button onClick={() => setQrGenerated(true)}>
+                🔁 QR 코드 다시 보기
+            </button>
             )}
         </div>
     );

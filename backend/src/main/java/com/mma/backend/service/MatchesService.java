@@ -34,7 +34,7 @@ public class MatchesService {
         //🔴 이미 업로드 된 경기정보가 있다면 (이전에 엑셀 파일 업로드 한 적 있다면)
         if(existingMatch.isPresent()) {
             savedMatches = existingMatch.get();//☑️ 덮어쓰고
-            roundsRepository.deleteByMatches_Id(savedMatches.getId()); //☑️ 기존 rounds 삭제
+            roundsRepository.deleteByMatchId(savedMatches.getId()); //☑️ 기존 rounds 삭제
             roundsRepository.flush();
         }else{
             //🔴 업로드 된 경기정보가 없다면 새로 저장
@@ -55,7 +55,7 @@ public class MatchesService {
         //🔴 라운드 정보 다시 생성
         for(int i = 1; i <= matches.getRoundCount(); i++){
             Rounds round = new Rounds();
-            round.setMatches(savedMatches);
+            round.setMatch(savedMatches);
             round.setRoundNumber(i);
             round.setFinished(false);
             round.setWinnerCorner(null);
