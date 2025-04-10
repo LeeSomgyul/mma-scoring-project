@@ -45,7 +45,7 @@ public class MatchProgressService {
     //✅ 현재 경기 정보를 어디서든 불러올 수 있도록 하는 기능
     @Transactional(readOnly = true)
     public MatchProgress getCurrentProgress(){
-        return matchProgressRepository.findTopByOrderByIdDesc()
+        return matchProgressRepository.findCurrentProgress()
                 .orElseThrow(() -> new NoSuchElementException("진행 중인 경기 정보가 없습니다."));
     }
 

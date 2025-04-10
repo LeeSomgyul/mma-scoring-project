@@ -3,6 +3,7 @@ package com.mma.backend.controller;
 import com.mma.backend.entity.Judges;
 import com.mma.backend.service.JudgesService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +18,13 @@ public class JudgeController {
 
     //✅ 심판 입장 시 정보 등록하는 기능
     @PostMapping
-    public ResponseEntity<Judges> registerJudge (@RequestParam String name, @RequestParam String deviceId) {
+    public ResponseEntity<?> registerJudge (@RequestParam String name, @RequestParam String deviceId) {
+        //🔴 입장 제한 체크(인원 초과될 수 있으니까)
+        if(judgesService.isJudgeLimitReached()){
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("이미 심판 인원이 모두 입장하였습니다.");
+        }
+
         Judges judge = judgesService.registerJudge(name, deviceId);
         return ResponseEntity.ok(judge);
     }

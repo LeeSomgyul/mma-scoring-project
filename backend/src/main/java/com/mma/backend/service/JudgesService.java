@@ -1,8 +1,9 @@
 package com.mma.backend.service;
 
 import com.mma.backend.entity.Judges;
+import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.repository.JudgesRepository;
-import com.mma.backend.repository.RoundsRepository;
+import com.mma.backend.repository.MatchProgressRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,7 @@ import java.util.UUID;
 public class JudgesService {
 
     private final JudgesRepository judgesRepository;
+    private final MatchProgressRepository matchProgressRepository;
 
     //✅ 심판 입장 시 정보 등록하는 기능
     public Judges registerJudge(String name, String deviceId) {
@@ -69,4 +71,14 @@ public class JudgesService {
         return generatedIds;
     }
 
+    //✅ 심판 인원을 초과해서 입장할 시 막는 기능
+    public boolean isJudgeLimitReached(){
+        MatchProgress progress = matchProgressRepository.findCurrentProgress()
+                .orElseThrow(() -> new IllegalArgumentException("현재 경기 진행 정보가 없습니다."));
+
+        int maxJudgeCount = progress.getJudgeCount();
+        int currentJudgeCount = judgesRepository.countByIsConnectedTrue();
+
+        return currentJudgeCount >= maxJudgeCount;
+    }
 }

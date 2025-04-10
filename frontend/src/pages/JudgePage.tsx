@@ -69,21 +69,35 @@ const JudgePage: React.FC = () => {
       if(response.data === true){
         const deviceId = getOrCreateDeviceId();
 
-        await axios.post(`${baseURL}/api/judges`, null, {
-          params: {
-            name,
-            deviceId
-          }
-        });
+        let judgeResponse;
+        try{
+          judgeResponse = await axios.post(`${baseURL}/api/judges`, null, {
+            params: {name, deviceId},
+            validateStatus: () => true
+          });
+        }catch(error){
+          console.error("❌ 심판 등록 실패:", error);
+          alert("❌ 심판 등록 중 오류 발생");
+          return;
+        }
+
+        if(judgeResponse.status === 403){
+          alert("🚫 이미 심판 인원이 모두 입장했습니다.");
+          return;
+        }
 
         alert("✅ 인증 성공!");
         setIsVerified(true);
       }else{
         alert("❌ 비밀번호가 일치하지 않습니다.");
       }
-    }catch(error){
-      console.error("❌ 인증 오류:", error);
-      alert("서버 오류가 발생했습니다.");
+    }catch(error:any){
+      if(error.response?.status === 403){
+        alert("🚫 이미 심판 인원이 모두 입장했습니다.");
+      }else{
+        console.error("❌ 인증 오류:", error);
+        alert("서버 오류가 발생했습니다.");
+      }
     }
   }
 
