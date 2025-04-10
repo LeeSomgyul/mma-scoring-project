@@ -112,8 +112,25 @@ const JudgePage: React.FC = () => {
       onConnect: () => {
         console.log("✅ STOMP 연결 성공");
 
+        //🔴 기존 경기 정보 연결
         client.subscribe("/topic/messages", (message) => {
           console.log("📩 서버로부터 메시지:", message.body);
+        });
+
+        //🔴 다음 경기 정보 연결
+        client.subscribe("/topic/next-match", (message) => {
+
+          const newMatch = JSON.parse(message.body);
+
+          console.log("🔥 새 경기 정보:", newMatch);
+
+          setMatchInfo(newMatch);
+
+          setScores(
+            Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" }))
+          );
+          setSubmitted(Array.from({ length: newMatch.roundCount }, () => false));
+          setEditing(Array.from({ length: newMatch.roundCount }, () => false));
         });
       },
 

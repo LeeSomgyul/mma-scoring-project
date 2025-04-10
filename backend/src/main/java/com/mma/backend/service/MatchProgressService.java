@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -87,5 +88,45 @@ public class MatchProgressService {
     @Transactional(readOnly = true)
     public int getJudgeCount(){
         return getCurrentProgress().getJudgeCount();
+    }
+
+    //✅ 본부 페이지의 다음 경기 버튼
+    @Transactional
+    public MatchProgress switchToNextMatch(Long currentMatchId){
+        List<Matches> matches = matchesRepository.findAllByOrderByIdAsc();
+
+        int currentIndex = -1;
+        int judgeCount = getCurrentProgress().getJudgeCount();
+
+        //🔴 현재 경기가 전체 경기 목록 중에서 몇 번째인지 찾기
+        for(int i = 0; i < matches.size(); i++){
+            if(matches.get(i).getId().equals(currentMatchId)){
+                currentIndex = i;
+                break;
+            }
+        }
+
+        //🔴 만약 다음 경기가 없다면
+        if(currentIndex == -1 || currentIndex +1 >= matches.size()){
+            throw new IllegalArgumentException("더 이상 다음 경기가 없습니다.");
+        }
+
+        //🔴 다음 순서 경기 꺼내오기
+        Matches nextMatch = matches.get(currentIndex + 1);
+
+        Rounds firstRound = roundsRepository.findByMatchAndRoundNumber(nextMatch, 1)
+                .orElseThrow(() -> new IllegalArgumentException("❌ 다음 매치에 라운드 없음"));
+
+        //🔴 다음 경기용 MatchProgress 새로 만들기
+        MatchProgress progress = MatchProgress.builder()
+                .currentMatch(nextMatch)
+                .currentRoundNumber(1)
+                .currentRound(firstRound)
+                .isLocked(false)
+                .isEndOfMatch(false)
+                .judgeCount(judgeCount)
+                .build();
+
+        return matchProgressRepository.save(progress);
     }
 }

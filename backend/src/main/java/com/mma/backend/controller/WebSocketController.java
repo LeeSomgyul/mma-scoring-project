@@ -3,6 +3,7 @@ package com.mma.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mma.backend.entity.MatchProgress;
+import com.mma.backend.entity.Matches;
 import com.mma.backend.repository.MatchProgressRepository;
 import com.mma.backend.service.MatchProgressService;
 import com.mma.backend.service.ScoresService;
@@ -13,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -79,6 +81,40 @@ public class WebSocketController {
             log.info("📤 본부석에 합산 점수 전송 완료: {}", result);
         }catch(Exception e){
             log.error("❌ 점수 처리 중 오류 발생:", e);
+        }
+    }
+
+    //✅ 다음 경기 정보를 /judge에 전달하는 메서드
+    public void sendNextMatch(MatchProgress nextProgress) {
+        try{
+            //🔴 다음 경기 정보 가져오기
+            Matches match = nextProgress.getCurrentMatch();
+
+            //🔴 다음 경기를 map형식으로 변환
+            List<Map<String, Object>> rounds = match.getRounds().stream()
+                    .map(r -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("id", r.getId());
+                        map.put("roundNumber", r.getRoundNumber());
+                        return map;
+                    })
+                    .toList();
+
+            Map<String, Object> matchInfo = new HashMap<>();
+            matchInfo.put("id", match.getId());
+            matchInfo.put("matchNumber", match.getMatchNumber());
+            matchInfo.put("division", match.getDivision());
+            matchInfo.put("roundCount", match.getRoundCount());
+            matchInfo.put("redName", match.getRedName());
+            matchInfo.put("blueName", match.getBlueName());
+            matchInfo.put("redGym", match.getRedGym());
+            matchInfo.put("blueGym", match.getBlueGym());
+            matchInfo.put("rounds", rounds);
+
+            messagingTemplate.convertAndSend("/topic/next-match", matchInfo);
+            log.info("📤 다음 경기 정보 전송: {}", matchInfo);
+        }catch(Exception e){
+            log.error("❌ 다음 경기 정보 전송 실패:", e);
         }
     }
 }

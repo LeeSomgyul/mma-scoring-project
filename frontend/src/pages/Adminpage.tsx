@@ -38,17 +38,18 @@ const Adminpage: React.FC = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [password, setPassword] = useState<string>("");
     const [isPasswordSet, setIsPasswordSet] = useState(false);
-    const [judgeCount, setJudgeCount] = useState<number>(3); //🔥🔥🔥 나중에 변경 예정
+    const [judgeCount, setJudgeCount] = useState<number | null>(null);
     const [qrGenerated, setQrGenerated] = useState(false);
     const [accessCode, setAccessCode] = useState("");
-    //여러 라운드 점수를 배열 형식으로 저장
-    const [scoreResults, setScoreResults] = useState<ScoreResult[]>([]);
-    //레드선수, 블루선수 라운드별 합산 점수
-    const [totalRedScore, setTotalRedScore] = useState<number | null>(null);
-    const [totalBlueScore, setTotalBlueScore] = useState<number | null>(null);
+    const [scoreResults, setScoreResults] = useState<ScoreResult[]>([]);//여러 라운드 점수를 배열 형식으로 저장
     const [scoreStatus, setScoreStatus] = useState<string>("⏳ 점수 대기 중...");
 
-    const baseURL = import.meta.env.VITE_API_BASE_URL;//전역으로 쓰이는 하드코딩
+    //✅ 전역으로 쓰이는 하드코딩
+    const baseURL = import.meta.env.VITE_API_BASE_URL;
+
+    //✅ 레드, 블루 총합 구하기
+    const redTotal = scoreResults.reduce((acc, cur) => acc + (cur.red ?? 0), 0);
+    const blueTotal = scoreResults.reduce((acc, cur) => acc + (cur.blue ?? 0), 0);
 
     useEffect(() => {
         if (qrGenerated && accessCode) {
@@ -198,19 +199,62 @@ const Adminpage: React.FC = () => {
         return () => {
             stompClient.deactivate();
         };
-    }, []);
+    }, [matches[currentIndex]?.id]);
 
     //✅ 다음 경기로 전환
-    const handleNext = () => {
-        if(currentIndex < matches.length -1){
-            setCurrentIndex((prev) => prev + 1);
-        }else{
-            alert("🚫 더 이상 다음 경기가 없습니다.");
+    const handleNext = async() => {
+        try{
+            const currentMatch = matches[currentIndex];
+
+            const response = await axios.post(`${baseURL}/api/progress/next`, null, {
+                params:{
+                    currentMatchId: currentMatch.id,
+                },
+            });
+        
+            if(response.status === 200){
+                alert("✅다음 경기로 이동합니다.");
+
+                const nextMatchId = response.data?.nextMatchId;
+
+                //🔴 새로운 경기 목록 가져오기기
+                if(nextMatchId){
+                    const response = await axios.get(`${baseURL}/api/matches`);
+                    const allMatches = response.data;
+                    setMatches(allMatches);
+
+                    const nextIndex = allMatches.findIndex((m: Match) => m.id === nextMatchId);
+                    if(nextIndex !== -1){
+                        setCurrentIndex(nextIndex);
+                    }
+
+                    const roundResponse = await axios.get(`${baseURL}/api/rounds/match/${nextMatchId}`);
+                    const roundList = roundResponse.data;
+                    const initialScores: ScoreResult[] = roundList.map((round: any) => ({
+                        roundId: round.id,
+                        roundNumber: round.roundNumber,
+                        red: null,
+                        blue: null,
+                    }));
+                    setScoreResults(initialScores);
+                    setScoreStatus("⏳ 점수 대기 중...");
+                }
+            }else{
+                alert("❌ 다음 경기로 이동 실패");
+            }
+        }catch(error){
+            console.error("❌ 다음 경기 전환 오류:", error);
+            alert("서버 오류가 발생했습니다.");
         }
     };
 
     //✅ 관리자 비밀번호 지정 시 저장
     const handleSavePassword = async () => {
+        if(!judgeCount || judgeCount < 1){
+            alert("심판 수를 1명 이상 입력해주세요!");
+            return;
+        }
+
         if(password.length !== 4){
             alert("비밀번호는 숫자 4자리여야 합니다.");
             return;
@@ -230,7 +274,6 @@ const Adminpage: React.FC = () => {
                     judgeCount: judgeCount
                 }
             });
-
 
             setShowQR(true);
             setShowPasswordModal(false);
@@ -278,12 +321,21 @@ const Adminpage: React.FC = () => {
                         <div key={result.roundId}>
                         {result.roundNumber}라운드:{" "}
                         {result.red !== null && result.blue !== null ? (
-                            <>{result.red}점 / {result.blue}점</>
+                            <div>
+                                <span>{result.red}점</span>
+                                <span>{result.blue}점</span>
+                            </div>
+                            
                         ) : (
                             <>⏳ 점수 대기 중...</>
                         )}
                         </div>
                     ))}
+                    <div>
+                        <span>합계: </span>
+                        <span>{redTotal}점</span>
+                        <span>{blueTotal}점</span>
+                    </div>
                     <button onClick={handleNext}>다음 경기👉</button>
                 </>
             ) : (
@@ -302,8 +354,12 @@ const Adminpage: React.FC = () => {
                     <label>심판 수: </label>
                     <input
                         type="number"
-                        value={judgeCount}
-                        onChange={(e) => setJudgeCount(Number(e.target.value))}
+                        value={judgeCount ?? ""}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setJudgeCount(value === "" ? null : Number(value));
+                        }}
+                        placeholder="심판 수 입력력"
                     />
                     <label>비밀번호: </label>
                     <input
