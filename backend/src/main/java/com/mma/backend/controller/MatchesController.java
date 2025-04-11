@@ -10,7 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -39,8 +42,30 @@ public class MatchesController {
 
     //✅ 엑셀 파일 불러오기(경기 목록 조회)
     @GetMapping
-    public ResponseEntity<List<Matches>> getAllMatches(){
+    public ResponseEntity<List<Map<String, Object>>> getAllMatches(){
         List<Matches> matches = matchesRepository.findAll();
-        return ResponseEntity.ok(matches);
+        List<Map<String, Object>> matchList = matches.stream().map(match -> {
+            Map<String, Object> matchInfo = new HashMap<>();
+            matchInfo.put("id", match.getId());
+            matchInfo.put("matchNumber", match.getMatchNumber());
+            matchInfo.put("division", match.getDivision());
+            matchInfo.put("roundCount", match.getRoundCount());
+            matchInfo.put("redName", match.getRedName());
+            matchInfo.put("blueName", match.getBlueName());
+            matchInfo.put("redGym", match.getRedGym());
+            matchInfo.put("blueGym", match.getBlueGym());
+
+            List<Map<String, Object>> rounds = match.getRounds().stream()
+                    .map(r -> {
+                        Map<String, Object> round = new HashMap<>();
+                        round.put("id", r.getId());
+                        round.put("roundNumber", r.getRoundNumber());
+                        return round;
+                    })
+                    .toList();
+                    matchInfo.put("rounds", rounds);
+                    return matchInfo;
+        }).toList();
+        return ResponseEntity.ok(matchList);
     }
 }

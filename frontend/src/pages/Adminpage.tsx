@@ -58,6 +58,57 @@ const Adminpage: React.FC = () => {
         }
       }, [qrGenerated, accessCode]);
 
+    //✅ WebSocket 연결
+    useEffect(() => {
+        const socket = new SockJS("/ws");
+        const stompClient = new Client({
+            webSocketFactory: () => socket,
+            reconnectDelay: 5000,
+            onConnect: () => {
+                console.log("✅ 본부석 WebSocket 연결 완료");
+                
+                //🔴 서버에서 점수 받기
+                stompClient.subscribe("/topic/messages", (message) => {
+                    try{
+                        const parsed = JSON.parse(message.body);
+                        console.log("✅ 받은 점수 전체 메시지:", parsed);
+                        
+                        if(parsed.status === "WAITING"){
+                            setScoreStatus("⏳ 점수 대기 중...");
+                        }else if(parsed.status === "COMPLETE"){
+                            setScoreResults((prev) =>
+                                prev.map((item) =>
+                                  item.roundId === parsed.roundId
+                                    ? { ...item, red: parsed.totalRed, blue: parsed.totalBlue }
+                                    : item
+                                )
+                              );
+                            setScoreStatus("✅ 합산 완료!");
+                            console.log("✅ 받은 점수:", parsed);
+                        }
+                    }catch(e){
+                        console.error("❌ 메시지 json 변경 실패:", e);
+                    }
+                });
+            },
+
+            onStompError: (frame) => {
+                console.error("❌ STOMP 에러:", frame.headers["message"]);
+            },
+
+            onWebSocketError: (event) => {
+                console.error("❌ WebSocket 에러:", event);
+            },
+        });
+
+        stompClient.activate();
+
+        return () => {
+            stompClient.deactivate();
+        };
+    }, [matches[currentIndex]?.id]);
+  
+
     //✅ 전체 경기 정보 불러오기
     const fetchMatches = () => {
         axios.get(`${baseURL}/api/matches`)
@@ -151,56 +202,7 @@ const Adminpage: React.FC = () => {
         setIsModalOpen(false);
     };
     
-    //✅ WebSocket 연결
-    useEffect(() => {
-        const socket = new SockJS("/ws");
-        const stompClient = new Client({
-            webSocketFactory: () => socket,
-            reconnectDelay: 5000,
-            onConnect: () => {
-                console.log("✅ 본부석 WebSocket 연결 완료");
-                
-                //🔴 서버에서 점수 받기
-                stompClient.subscribe("/topic/messages", (message) => {
-                    try{
-                        const parsed = JSON.parse(message.body);
-                        console.log("✅ 받은 점수 전체 메시지:", parsed);
-                        
-                        if(parsed.status === "WAITING"){
-                            setScoreStatus("⏳ 점수 대기 중...");
-                        }else if(parsed.status === "COMPLETE"){
-                            setScoreResults((prev) =>
-                                prev.map((item) =>
-                                  item.roundId === parsed.roundId
-                                    ? { ...item, red: parsed.totalRed, blue: parsed.totalBlue }
-                                    : item
-                                )
-                              );
-                            setScoreStatus("✅ 합산 완료!");
-                            console.log("✅ 받은 점수:", parsed);
-                        }
-                    }catch(e){
-                        console.error("❌ 메시지 json 변경 실패:", e);
-                    }
-                });
-            },
-
-            onStompError: (frame) => {
-                console.error("❌ STOMP 에러:", frame.headers["message"]);
-            },
-
-            onWebSocketError: (event) => {
-                console.error("❌ WebSocket 에러:", event);
-            },
-        });
-
-        stompClient.activate();
-
-        return () => {
-            stompClient.deactivate();
-        };
-    }, [matches[currentIndex]?.id]);
-
+    
     //✅ 다음 경기로 전환
     const handleNext = async() => {
         try{
@@ -288,6 +290,11 @@ const Adminpage: React.FC = () => {
         }
     };
 
+    //✅ 모든 라운드 점수를 받아야지만 '다음 경기' 버튼 클릭 가능
+    const isAllScoresSubmitted = () => {
+        return scoreResults.every((score) => score.red !== null && score.blue !== null);
+    };
+
     const current = matches[currentIndex];
 
     return(
@@ -338,7 +345,15 @@ const Adminpage: React.FC = () => {
                         <span>{redTotal}점</span>
                         <span>{blueTotal}점</span>
                     </div>
-                    <button onClick={handleNext}>다음 경기👉</button>
+                    <button onClick={() => {
+                        if(!isAllScoresSubmitted()){
+                            alert("⚠️ 모든 라운드의 점수가 입력되어야 다음 경기로 넘어갈 수 있습니다.");
+                            return;
+                        }
+                        handleNext();
+                    }}>
+                        다음 경기👉
+                    </button>
                 </>
             ) : (
                 <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>

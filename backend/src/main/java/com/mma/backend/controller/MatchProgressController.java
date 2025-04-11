@@ -2,6 +2,7 @@ package com.mma.backend.controller;
 
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.service.MatchProgressService;
+import com.mma.backend.utils.WebSocketSender;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +16,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MatchProgressController {
 
-    private final SimpMessagingTemplate messagingTemplate;
     private final MatchProgressService matchProgressService;
+    private final WebSocketSender webSocketSender;
 
     //✅ 경기 시작 -> MatchProgress 생성
     @PostMapping("/start")
@@ -75,20 +76,6 @@ public class MatchProgressController {
             //🔴 다음 경기 정보 가져오기
             MatchProgress nextProgress = matchProgressService.switchToNextMatch(currentMatchId);
             Long nextMatchId = nextProgress.getCurrentMatch().getId();
-
-            //🔴 다음 경기 정보 WebSocket 전송
-            Map<String, Object> nextMatch = Map.of(
-                    "matchId", nextProgress.getCurrentMatch().getId(),
-                    "matchNumber", nextProgress.getCurrentMatch().getMatchNumber(),
-                    "roundCount", nextProgress.getCurrentMatch().getRoundCount(),
-                    "redName", nextProgress.getCurrentMatch().getRedName(),
-                    "redGym", nextProgress.getCurrentMatch().getRedGym(),
-                    "blueName", nextProgress.getCurrentMatch().getBlueName(),
-                    "blueGym", nextProgress.getCurrentMatch().getBlueGym(),
-                    "division", nextProgress.getCurrentMatch().getDivision()
-            );
-
-            messagingTemplate.convertAndSend("/topic/next-match", nextMatch);
 
             return ResponseEntity.ok(Map.of("nextMatchId", nextMatchId));
         }catch (Exception e){

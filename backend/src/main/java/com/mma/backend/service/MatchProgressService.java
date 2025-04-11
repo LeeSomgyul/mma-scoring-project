@@ -101,6 +101,12 @@ public class MatchProgressService {
         int currentIndex = -1;
         int judgeCount = getCurrentProgress().getJudgeCount();
 
+        //🔴 기존에 진행 중이었던 MatchProgress 모두 종료 처리
+        matchProgressRepository.findAll().forEach(progress -> {
+            progress.setIsEndOfMatch(true);
+            progress.setIsLocked(true);
+        });
+
         //🔴 현재 경기가 전체 경기 목록 중에서 몇 번째인지 찾기
         for(int i = 0; i < matches.size(); i++){
             if(matches.get(i).getId().equals(currentMatchId)){

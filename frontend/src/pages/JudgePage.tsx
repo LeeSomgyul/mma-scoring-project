@@ -47,6 +47,96 @@ const JudgePage: React.FC = () => {
   const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
   
+  //🔥🔥 테스트 로그
+  useEffect(() => {
+    console.log("🧠 matchInfo 변경됨:", matchInfo);
+  
+    if (matchInfo?.rounds) {
+      console.log("✅ rounds 도착:", matchInfo.rounds);
+    } else {
+      console.error("❌ rounds 없음!", matchInfo);
+    }
+  }, [matchInfo]);
+
+  // ✅ WebSocket 연결
+  useEffect(() => {
+    const socket = new SockJS("/ws");
+
+    const client = new Client({
+      webSocketFactory: () => socket,
+      reconnectDelay: 5000,
+
+      onConnect: () => {
+        console.log("✅ STOMP 연결 성공");
+
+        //🔴 기존 경기 정보 연결
+        client.subscribe("/topic/messages", (message) => {
+          console.log("📩 서버로부터 메시지:", message.body);
+        });
+
+        //🔴 다음 경기 정보 받기 및 초기화
+        client.subscribe("/topic/next-match", (message) => {
+
+          const newMatch = JSON.parse(message.body);
+
+          //🔥🔥 테스트 로그(나중에 삭제 - if문까지)
+          console.log("🔥 새 경기 정보:", JSON.stringify(newMatch, null, 2)); // 구조화된 출력
+          console.log("🔥 rounds 배열:", newMatch.rounds);
+          if (!newMatch.rounds || newMatch.rounds.length === 0) {
+            console.error("❌ rounds 배열이 비어 있거나 누락됨:", newMatch);
+          }
+
+          setMatchInfo(newMatch);
+
+          setScores(Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" })));
+          setSubmitted(Array.from({ length: newMatch.roundCount }, () => false));
+          setEditing(Array.from({ length: newMatch.roundCount }, () => false));
+          setCurrentRoundIndex(0);
+        });
+
+        //🔴 최초 연결 시 초기 경기 정보 가져오기
+        axios
+          .get("/api/matches")
+          .then(async(res) => {
+            const firstMatch = res.data[0];
+            const roundsResponse = await axios.get(`/api/rounds/match/${firstMatch.id}`);
+            const rounds = roundsResponse.data;
+
+            const fullMatchInfo = {
+              ...firstMatch,
+              rounds: rounds,
+            };
+
+            setMatchInfo(fullMatchInfo);
+            setScores(Array.from({length: firstMatch.roundCount}, () => ({ red: "", blue: "" }))
+          );
+          setSubmitted(Array.from({ length: firstMatch.roundCount }, () => false));
+          setEditing(Array.from({ length: firstMatch.roundCount }, () => false));
+          setCurrentRoundIndex(0)
+          })
+          .catch((err) => console.error("❌ match 정보 가져오기 실패:", err));
+      },
+
+      onStompError: (frame) => {
+        console.error("❌ STOMP 에러:", frame.headers["message"]);
+      },
+
+      onWebSocketError: (event) => {
+        console.error("❌ WebSocket 에러:", event);
+      },
+
+      onDisconnect: () => {
+        console.log("🚫 STOMP 연결 종료");
+      },
+    });
+
+    client.activate();
+    setStompClient(client);
+
+    return () => {
+      client.deactivate();
+    };
+  }, []);
 
   //✅ 비밀번호 검증 버튼
   const handleVerify = async() => {
@@ -102,78 +192,7 @@ const JudgePage: React.FC = () => {
     }
   }
 
-  // ✅ WebSocket 연결
-  useEffect(() => {
-    const socket = new SockJS("/ws");
-
-    const client = new Client({
-      webSocketFactory: () => socket,
-      reconnectDelay: 5000,
-
-      onConnect: () => {
-        console.log("✅ STOMP 연결 성공");
-
-        //🔴 기존 경기 정보 연결
-        client.subscribe("/topic/messages", (message) => {
-          console.log("📩 서버로부터 메시지:", message.body);
-        });
-
-        //🔴 다음 경기 정보 받기 및 초기화
-        client.subscribe("/topic/next-match", (message) => {
-
-          const newMatch = JSON.parse(message.body);
-
-          //🔥🔥 테스트 로그(나중에 삭제 - if문까지)
-          console.log("🔥 새 경기 정보:", JSON.stringify(newMatch, null, 2)); // 구조화된 출력
-          console.log("🔥 rounds 배열:", newMatch.rounds);
-          if (!newMatch.rounds || newMatch.rounds.length === 0) {
-            console.error("❌ rounds 배열이 비어 있거나 누락됨:", newMatch);
-          }
-
-          //그록 에서 해결방안 보기(순서)
-          setMatchInfo(newMatch);
-
-          setScores(Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" })));
-          setSubmitted(Array.from({ length: newMatch.roundCount }, () => false));
-          setEditing(Array.from({ length: newMatch.roundCount }, () => false));
-          setCurrentRoundIndex(0);
-        });
-
-        //🔴 최초 연결 시 초기 경기 정보 가져오기
-        axios
-          .get("/api/matches")
-          .then((res) => {
-            const firstMatch = res.data[0];
-            setMatchInfo(firstMatch);
-            setScores(Array.from({length: firstMatch.roundCount}, () => ({ red: "", blue: "" }))
-          );
-          setSubmitted(Array.from({ length: firstMatch.roundCount }, () => false));
-          setEditing(Array.from({ length: firstMatch.roundCount }, () => false));
-          setCurrentRoundIndex(0)
-          })
-          .catch((err) => console.error("❌ match 정보 가져오기 실패:", err));
-      },
-
-      onStompError: (frame) => {
-        console.error("❌ STOMP 에러:", frame.headers["message"]);
-      },
-
-      onWebSocketError: (event) => {
-        console.error("❌ WebSocket 에러:", event);
-      },
-
-      onDisconnect: () => {
-        console.log("🚫 STOMP 연결 종료");
-      },
-    });
-
-    client.activate();
-    setStompClient(client);
-
-    return () => {
-      client.deactivate();
-    };
-  }, []);
+  
 
   // ✅ 점수 입력
   const handleScoreChange = (
@@ -207,8 +226,31 @@ const JudgePage: React.FC = () => {
       return;
     }
 
+    //🔥🔥🔥아래 if2개까지 삭제 가능(디버그용)
+    console.log("🔍 현재 matchInfo (전송 전):", JSON.stringify(matchInfo, null, 2));
+    console.log("🔍 현재 roundIndex:", roundIndex);
+    if (!matchInfo || !matchInfo.rounds || !matchInfo.rounds[roundIndex]) {
+      console.error("❌ 경기 정보 또는 rounds 데이터 누락:", matchInfo);
+      alert("❌ 경기 정보가 올바르지 않습니다. 새로고침 후 다시 시도해주세요.");
+      return;
+    }
+
+    const roundId = matchInfo.rounds[roundIndex].id;
+
+    //🔥🔥🔥 디버그 용으로 삭제 가능
+    if (!roundId) {
+      console.error("❌ roundId가 undefined! 아래 matchInfo.rounds 로그 확인:", {
+        roundIndex,
+        rounds: matchInfo?.rounds,
+        matchInfo,
+      });
+      alert("❌ 라운드 정보가 누락되었습니다. 관리자에게 문의하세요.");
+      return;
+    }
+
     const result = {
-      roundId: matchInfo?.rounds?.[roundIndex]?.id,
+      //roundId: matchInfo?.rounds?.[roundIndex]?.id,
+      roundId,
       redScore: parseInt(red),
       blueScore: parseInt(blue),
       judgeId: deviceId,

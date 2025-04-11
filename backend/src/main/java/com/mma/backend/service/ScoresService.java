@@ -30,7 +30,7 @@ public class ScoresService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 심판 기기를 찾을 수 없습니다."));
 
         //🔴 심판이 점수 수정 했을 시(점수가 이미 들어와 있는지 확인)
-        Optional<Scores> existing = scoresRepository.findByRoundsAndJudges(round, judge);
+        Optional<Scores> existing = scoresRepository.findByRounds_IdAndJudges_Id(round.getId(), judge.getId());
 
         Scores scores;
         if(existing.isPresent()) {
