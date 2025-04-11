@@ -42,6 +42,7 @@ const JudgePage: React.FC = () => {
   const [inputPassword, setInputPassword] = useState<string>("");
   const [isVerified, setIsVerified] = useState(false);
   const [searchParams] = useSearchParams();
+  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
 
   const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
@@ -117,21 +118,40 @@ const JudgePage: React.FC = () => {
           console.log("📩 서버로부터 메시지:", message.body);
         });
 
-        //🔴 다음 경기 정보 연결
+        //🔴 다음 경기 정보 받기 및 초기화
         client.subscribe("/topic/next-match", (message) => {
 
           const newMatch = JSON.parse(message.body);
 
-          console.log("🔥 새 경기 정보:", newMatch);
+          //🔥🔥 테스트 로그(나중에 삭제 - if문까지)
+          console.log("🔥 새 경기 정보:", JSON.stringify(newMatch, null, 2)); // 구조화된 출력
+          console.log("🔥 rounds 배열:", newMatch.rounds);
+          if (!newMatch.rounds || newMatch.rounds.length === 0) {
+            console.error("❌ rounds 배열이 비어 있거나 누락됨:", newMatch);
+          }
 
+          //그록 에서 해결방안 보기(순서)
           setMatchInfo(newMatch);
 
-          setScores(
-            Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" }))
-          );
+          setScores(Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" })));
           setSubmitted(Array.from({ length: newMatch.roundCount }, () => false));
           setEditing(Array.from({ length: newMatch.roundCount }, () => false));
+          setCurrentRoundIndex(0);
         });
+
+        //🔴 최초 연결 시 초기 경기 정보 가져오기
+        axios
+          .get("/api/matches")
+          .then((res) => {
+            const firstMatch = res.data[0];
+            setMatchInfo(firstMatch);
+            setScores(Array.from({length: firstMatch.roundCount}, () => ({ red: "", blue: "" }))
+          );
+          setSubmitted(Array.from({ length: firstMatch.roundCount }, () => false));
+          setEditing(Array.from({ length: firstMatch.roundCount }, () => false));
+          setCurrentRoundIndex(0)
+          })
+          .catch((err) => console.error("❌ match 정보 가져오기 실패:", err));
       },
 
       onStompError: (frame) => {
@@ -153,24 +173,6 @@ const JudgePage: React.FC = () => {
     return () => {
       client.deactivate();
     };
-  }, []);
-
-  // ✅ match 정보 가져오기
-  useEffect(() => {
-    axios
-      .get("/api/matches")
-      .then((res) => {
-        const firstMatch = res.data[0];
-        setMatchInfo(firstMatch);
-        setScores(
-          Array.from({ length: firstMatch.roundCount }, () => ({ red: "", blue: "" }))
-        );
-        setSubmitted(Array.from({ length: firstMatch.roundCount }, () => false));
-        setEditing(Array.from({ length: firstMatch.roundCount }, () => false));
-      })
-      .catch((err) => {
-        console.error("❌ match 정보 가져오기 실패:", err);
-      });
   }, []);
 
   // ✅ 점수 입력

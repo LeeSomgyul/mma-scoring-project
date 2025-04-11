@@ -229,6 +229,8 @@ const Adminpage: React.FC = () => {
                     }
 
                     const roundResponse = await axios.get(`${baseURL}/api/rounds/match/${nextMatchId}`);
+                    console.log("다음 경기 라운드 목록:", roundResponse.data);
+
                     const roundList = roundResponse.data;
                     const initialScores: ScoreResult[] = roundList.map((round: any) => ({
                         roundId: round.id,

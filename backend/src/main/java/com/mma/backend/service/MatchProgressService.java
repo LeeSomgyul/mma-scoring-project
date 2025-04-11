@@ -1,11 +1,13 @@
 package com.mma.backend.service;
 
+import com.mma.backend.controller.WebSocketController;
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.entity.Matches;
 import com.mma.backend.entity.Rounds;
 import com.mma.backend.repository.MatchProgressRepository;
 import com.mma.backend.repository.MatchesRepository;
 import com.mma.backend.repository.RoundsRepository;
+import com.mma.backend.utils.WebSocketSender;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ public class MatchProgressService {
     private final MatchProgressRepository matchProgressRepository;
     private final MatchesRepository matchesRepository;
     private final RoundsRepository roundsRepository;
+    private final WebSocketSender webSocketSender;
 
     //✅ 현재 경기 정보를 DB에 저장하기 위한 MatchProgress 생성
     @Transactional
@@ -127,6 +130,9 @@ public class MatchProgressService {
                 .judgeCount(judgeCount)
                 .build();
 
-        return matchProgressRepository.save(progress);
+        MatchProgress savedProgress = matchProgressRepository.save(progress);
+        webSocketSender.sendNextMatch(savedProgress);
+
+        return savedProgress;
     }
 }
