@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.Map;
 
@@ -34,11 +33,10 @@ public class MatchProgressController {
         return ResponseEntity.ok(matchProgressService.getCurrentProgress());
     }
 
-    //✅ 본부석의 '다음 라운드' 넘어가는 버튼 기능
-    @PostMapping("/next-round")
-    public ResponseEntity<Void> nextRound(){
-        matchProgressService.goToNextRound();
-        return ResponseEntity.ok().build();
+    //✅ 현재 진행 중인 라운드 번호를 조회하는 기능
+    @GetMapping("/current-round")
+    public int getCurrentRoundNumber(){
+        return matchProgressService.getCurrentProgress().getCurrentRoundNumber();
     }
 
     //✅ 경기 종료 처리

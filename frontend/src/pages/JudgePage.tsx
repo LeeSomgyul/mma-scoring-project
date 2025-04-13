@@ -47,16 +47,6 @@ const JudgePage: React.FC = () => {
   const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
   
-  //🔥🔥 테스트 로그
-  useEffect(() => {
-    console.log("🧠 matchInfo 변경됨:", matchInfo);
-  
-    if (matchInfo?.rounds) {
-      console.log("✅ rounds 도착:", matchInfo.rounds);
-    } else {
-      console.error("❌ rounds 없음!", matchInfo);
-    }
-  }, [matchInfo]);
 
   // ✅ WebSocket 연결
   useEffect(() => {
@@ -90,9 +80,10 @@ const JudgePage: React.FC = () => {
 
           setScores(Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" })));
           setSubmitted(Array.from({ length: newMatch.roundCount }, () => false));
-          setEditing(Array.from({ length: newMatch.roundCount }, () => false));
+          setEditing(Array.from({ length: newMatch.roundCount }, (_, i) => i === 0));
           setCurrentRoundIndex(0);
         });
+
 
         //🔴 최초 연결 시 초기 경기 정보 가져오기
         axios
@@ -111,7 +102,7 @@ const JudgePage: React.FC = () => {
             setScores(Array.from({length: firstMatch.roundCount}, () => ({ red: "", blue: "" }))
           );
           setSubmitted(Array.from({ length: firstMatch.roundCount }, () => false));
-          setEditing(Array.from({ length: firstMatch.roundCount }, () => false));
+          setEditing(Array.from({ length: firstMatch.roundCount }, (_, i) => i === 0));
           setCurrentRoundIndex(0)
           })
           .catch((err) => console.error("❌ match 정보 가져오기 실패:", err));
@@ -137,6 +128,22 @@ const JudgePage: React.FC = () => {
       client.deactivate();
     };
   }, []);
+
+  //✅ 심판이 라운드 순서대로 열 수 있도록 input제어
+  useEffect(() => {
+    const newEditing = [...editing];
+
+    for(let i = 0; i < submitted.length; i++){
+      if(submitted[i] && !submitted[i+1]){
+        newEditing[i + 1] = true;
+        break;
+      }
+    }
+
+    setEditing(newEditing);
+  }, [submitted]);
+
+
 
   //✅ 비밀번호 검증 버튼
   const handleVerify = async() => {
@@ -249,7 +256,6 @@ const JudgePage: React.FC = () => {
     }
 
     const result = {
-      //roundId: matchInfo?.rounds?.[roundIndex]?.id,
       roundId,
       redScore: parseInt(red),
       blueScore: parseInt(blue),
@@ -273,7 +279,7 @@ const JudgePage: React.FC = () => {
       newEditing[roundIndex] = false;
       setEditing(newEditing);
 
-      if (editing[roundIndex]) {
+      if (submitted[roundIndex]) {
         alert("수정 완료!");
       } else {
         alert("전송 완료!");
@@ -325,13 +331,13 @@ const JudgePage: React.FC = () => {
                   type="number"
                   value={scores[i].red}
                   onChange={(e) => handleScoreChange(i, "red", e.target.value)}
-                  disabled={!editing[i] && submitted[i]}
+                  disabled={!editing[i]}
                 />
                 <input
                   type="number"
                   value={scores[i].blue}
                   onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
-                  disabled={!editing[i] && submitted[i]}
+                  disabled={!editing[i]}
                 />
                 {submitted[i] && !editing[i] ? (
                   <button onClick={() => handleEdit(i)}>수정</button>

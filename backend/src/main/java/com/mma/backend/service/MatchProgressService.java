@@ -1,6 +1,5 @@
 package com.mma.backend.service;
 
-import com.mma.backend.controller.WebSocketController;
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.entity.Matches;
 import com.mma.backend.entity.Rounds;
@@ -14,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -53,14 +53,6 @@ public class MatchProgressService {
                 .orElseThrow(() -> new NoSuchElementException("진행 중인 경기 정보가 없습니다."));
     }
 
-    //✅ 본부석의 '다음 라운드' 넘어가는 버튼 기능
-    @Transactional
-    public void goToNextRound(){
-        MatchProgress progress = getCurrentProgress();
-        progress.setCurrentRoundNumber(progress.getCurrentRoundNumber() + 1);
-        progress.setIsLocked(false);
-        matchProgressRepository.save(progress);
-    }
 
     //✅ 경기 종료 처리
     @Transactional
@@ -140,5 +132,10 @@ public class MatchProgressService {
         webSocketSender.sendNextMatch(savedProgress);
 
         return savedProgress;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<MatchProgress> findCurrentProgress (){
+        return matchProgressRepository.findCurrentProgress();
     }
 }

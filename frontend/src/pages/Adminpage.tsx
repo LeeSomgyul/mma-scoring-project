@@ -43,13 +43,30 @@ const Adminpage: React.FC = () => {
     const [accessCode, setAccessCode] = useState("");
     const [scoreResults, setScoreResults] = useState<ScoreResult[]>([]);//여러 라운드 점수를 배열 형식으로 저장
     const [scoreStatus, setScoreStatus] = useState<string>("⏳ 점수 대기 중...");
+    const [judgeStatus, setJudgeStatus] = useState<{name: string; submitted: boolean}[]>([]);
+    const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
 
     //✅ 전역으로 쓰이는 하드코딩
     const baseURL = import.meta.env.VITE_API_BASE_URL;
+    const current = matches[currentIndex];
 
     //✅ 레드, 블루 총합 구하기
     const redTotal = scoreResults.reduce((acc, cur) => acc + (cur.red ?? 0), 0);
     const blueTotal = scoreResults.reduce((acc, cur) => acc + (cur.blue ?? 0), 0);
+
+    //✅ 초기 심판 리스트 저장
+    useEffect(() => {
+        if(isPasswordSet && current){
+            axios.get(`${baseURL}/api/judges/current`)
+                .then(response => {
+                    const judgeList = response.data;
+                    setJudgeStatus(judgeList.map((judge: any) =>({ name: judge.name, submitted: false })));
+                })
+                .catch(error => {
+                    console.error("❌ 심판 목록 불러오기 실패:", error.message);
+                });
+        }
+    }, [isPasswordSet, currentIndex]);
 
     useEffect(() => {
         if (qrGenerated && accessCode) {
@@ -73,16 +90,34 @@ const Adminpage: React.FC = () => {
                         const parsed = JSON.parse(message.body);
                         console.log("✅ 받은 점수 전체 메시지:", parsed);
                         
+                        if(parsed.status === "JOINED" && parsed.judgeName){
+                            setJudgeStatus(prev => {
+                                if(prev.some(judge => judge.name === parsed.judgeName)) return prev;
+                                return [...prev, { name: parsed.judgeName, submitted: false }];
+                            });
+                        }
+
                         if(parsed.status === "WAITING"){
                             setScoreStatus("⏳ 점수 대기 중...");
                         }else if(parsed.status === "COMPLETE"){
+                            const { roundId, judgeName, totalRed, totalBlue } = parsed;
+
+                            //🔴 점수 합산 반영
                             setScoreResults((prev) =>
                                 prev.map((item) =>
-                                  item.roundId === parsed.roundId
-                                    ? { ...item, red: parsed.totalRed, blue: parsed.totalBlue }
+                                  item.roundId === roundId
+                                    ? { ...item, red: totalRed, blue: totalBlue }
                                     : item
                                 )
                               );
+
+                            //🔴 심판 제출 상태 업데이트(누가 제출했는지)
+                            setJudgeStatus((prev) =>
+                                prev.map((judge) =>
+                                  judge.name === judgeName ? { ...judge, submitted: true } : judge
+                                )
+                              );
+
                             setScoreStatus("✅ 합산 완료!");
                             console.log("✅ 받은 점수:", parsed);
                         }
@@ -228,6 +263,10 @@ const Adminpage: React.FC = () => {
                     const nextIndex = allMatches.findIndex((m: Match) => m.id === nextMatchId);
                     if(nextIndex !== -1){
                         setCurrentIndex(nextIndex);
+
+                        const judgeResponse = await axios.get(`${baseURL}/api/judges/current`);
+                        const judgeList = judgeResponse.data;
+                        setJudgeStatus(judgeList.map((judge: any) => ({ name: judge.name, submitted: false })));
                     }
 
                     const roundResponse = await axios.get(`${baseURL}/api/rounds/match/${nextMatchId}`);
@@ -241,6 +280,7 @@ const Adminpage: React.FC = () => {
                         blue: null,
                     }));
                     setScoreResults(initialScores);
+                    setCurrentRoundIndex(0);
                     setScoreStatus("⏳ 점수 대기 중...");
                 }
             }else{
@@ -250,6 +290,11 @@ const Adminpage: React.FC = () => {
             console.error("❌ 다음 경기 전환 오류:", error);
             alert("서버 오류가 발생했습니다.");
         }
+    };
+
+    //✅ 모든 라운드 점수를 받아야지만 '다음 경기' 버튼 클릭 가능
+    const isAllScoresSubmitted = () => {
+        return scoreResults.every((score) => score.red !== null && score.blue !== null);
     };
 
     //✅ 관리자 비밀번호 지정 시 저장
@@ -290,12 +335,7 @@ const Adminpage: React.FC = () => {
         }
     };
 
-    //✅ 모든 라운드 점수를 받아야지만 '다음 경기' 버튼 클릭 가능
-    const isAllScoresSubmitted = () => {
-        return scoreResults.every((score) => score.red !== null && score.blue !== null);
-    };
-
-    const current = matches[currentIndex];
+    
 
     return(
         <div>
@@ -325,21 +365,30 @@ const Adminpage: React.FC = () => {
                         <span>{current.matchNumber}경기</span>
                         <span>{current.division}</span>
                     </div>
-                    <div>{current.redName}({current.redGym}) | {current.blueName}({current.blueGym})</div>
-                    {scoreResults.map((result) => (
-                        <div key={result.roundId}>
-                        {result.roundNumber}라운드:{" "}
-                        {result.red !== null && result.blue !== null ? (
-                            <div>
-                                <span>{result.red}점</span>
-                                <span>{result.blue}점</span>
+                    <div>
+                        {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
+                    </div>
+                        {scoreResults.map(result => (
+                            <div key={result.roundId}>
+                                <div>{result.roundNumber}라운드: {result.red}점 : {result.blue}점</div>
+                                <div>
+                                {judgeCount && judgeCount > 0 ? (
+                                    <div>
+                                    {Array.from({ length: judgeCount }).map((_, idx) => {
+                                        const judge = judgeStatus[idx];
+                                        return (
+                                        <span key={idx}>
+                                            {judge ? `${judge.name} ${judge.submitted ? "✅" : "⌛"}` : `심판${idx + 1} 🙋 심판 미입장`}{" "}
+                                        </span>
+                                        );
+                                    })}
+                                    </div>
+                                ) : (
+                                    <div>🙋 심판 미입장</div>
+                                )}
+                                </div>
                             </div>
-                            
-                        ) : (
-                            <>⏳ 점수 대기 중...</>
-                        )}
-                        </div>
-                    ))}
+                        ))}
                     <div>
                         <span>합계: </span>
                         <span>{redTotal}점</span>

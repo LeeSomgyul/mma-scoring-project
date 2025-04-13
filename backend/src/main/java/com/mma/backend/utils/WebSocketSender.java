@@ -18,13 +18,14 @@ public class WebSocketSender {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void sendComplete(Long roundId, int roundNumber, int totalRed, int totalBlue) {
+    public void sendComplete(Long roundId, int roundNumber, int totalRed, int totalBlue, String judgeName) {
         Map<String, Object> result = Map.of(
                 "status", "COMPLETE",
                 "roundId", roundId,
                 "roundNumber", roundNumber,
                 "totalRed", totalRed,
-                "totalBlue", totalBlue
+                "totalBlue", totalBlue,
+                "judgeName", judgeName
         );
 
         messagingTemplate.convertAndSend("/topic/messages", result);

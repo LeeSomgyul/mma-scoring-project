@@ -6,6 +6,7 @@ import com.mma.backend.entity.Scores;
 import com.mma.backend.repository.JudgesRepository;
 import com.mma.backend.repository.RoundsRepository;
 import com.mma.backend.repository.ScoresRepository;
+import com.mma.backend.utils.WebSocketSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class ScoresService {
     private final ScoresRepository scoresRepository;
     private final RoundsRepository roundsRepository;
     private final JudgesRepository judgesRepository;
+    private final WebSocketSender webSocketSender;
 
     //✅ 심판이 전송한 점수를 저장하는 기능
     public Optional<Map<String, Object>> saveScore(Long roundId, String judgeDeviceId, int redScore, int blueScore) {
@@ -69,8 +71,11 @@ public class ScoresService {
                     "status", "COMPLETE",
                     "roundId", roundId,
                     "totalRed", totalRed,
-                    "totalBlue", totalBlue
+                    "totalBlue", totalBlue,
+                    "judgeName", judge.getName()
             );
+
+            webSocketSender.sendComplete(roundId, round.getRoundNumber(), totalRed, totalBlue, judge.getName());
             return Optional.of(result);
         }
         //🔴 아직 전원이 제출하지 않았으면 status만 반환

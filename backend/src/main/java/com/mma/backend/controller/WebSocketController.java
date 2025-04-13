@@ -2,7 +2,9 @@
 package com.mma.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mma.backend.entity.Judges;
 import com.mma.backend.entity.MatchProgress;
+import com.mma.backend.repository.JudgesRepository;
 import com.mma.backend.service.MatchProgressService;
 import com.mma.backend.service.ScoresService;
 import com.mma.backend.utils.WebSocketSender;
@@ -22,11 +24,11 @@ public class WebSocketController {
     private final ScoresService scoresService;
     private final MatchProgressService matchProgressService;
     private final WebSocketSender webSocketSender;
+    private final JudgesRepository judgesRepository;
 
     //✅ 심판이 보낸 점수 --(서버: 여기 백엔드)--> 본부석에 점수 전달
     @MessageMapping("/send")
     public void receiveMessage(String message) {
-        log.info("📥 서버가 받은 메시지: {}", message);
 
         try{
             //🔴 받은 점수 정보를 JSON -> Map 변환
@@ -37,7 +39,11 @@ public class WebSocketController {
                 return;
             }
 
-            String judgeDeviceId = scoreInfo.get("judgeId").toString();// 실제로는 deviceId
+            String judgeDeviceId = scoreInfo.get("judgeId").toString();
+
+            Judges judge = judgesRepository.findByDevicedId(judgeDeviceId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 judge를 찾을 수 없습니다."));
+
             int redScore = scoreInfo.containsKey("redScore") ? Integer.parseInt(scoreInfo.get("redScore").toString()) : 0;
             int blueScore = scoreInfo.containsKey("blueScore") ? Integer.parseInt(scoreInfo.get("blueScore").toString()) : 0;
 
@@ -72,7 +78,7 @@ public class WebSocketController {
             int totalBlue = scoresService.sumBlueScoreByRound(roundId);
             int roundNumber = scoresService.getRoundNumberById(roundId);
 
-            webSocketSender.sendComplete(roundId, roundNumber, totalRed, totalBlue);
+            webSocketSender.sendComplete(roundId, roundNumber, totalRed, totalBlue, judge.getName());
 
         }catch(Exception e){
             log.error("❌ 점수 처리 중 오류 발생:", e);
