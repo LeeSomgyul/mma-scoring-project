@@ -65,4 +65,10 @@ public class WebSocketSender {
         messagingTemplate.convertAndSend("/topic/messages", result);
         log.info("📤 본부석에 전체 심판 제출 결과 전송 완료: {}", result);
     }
+
+    public void sendModified(Map<String, Object> message) {
+        messagingTemplate.convertAndSend("/topic/messages", message);
+        log.info("📤 점수 수정됨 → 본부에 전송: {}", message);
+    }
+
 }

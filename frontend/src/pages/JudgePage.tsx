@@ -294,6 +294,23 @@ const JudgePage: React.FC = () => {
     const newEditing = [...editing];
     newEditing[roundIndex] = true;
     setEditing(newEditing);
+
+    const deviceId = localStorage.getItem("judgeDeviceId");
+    const roundId = matchInfo?.rounds?.[roundIndex]?.id;
+
+    if(stompClient && stompClient.connected && deviceId && roundId){
+      const modifyMessage = {
+        judgeId: deviceId,
+        roundId: roundId
+      };
+
+      stompClient.publish({
+        destination: "/app/modify",
+        body: JSON.stringify(modifyMessage)
+      });
+  
+      console.log("✏️ 수정 요청 전송:", modifyMessage);
+    }
   };
 
   return (

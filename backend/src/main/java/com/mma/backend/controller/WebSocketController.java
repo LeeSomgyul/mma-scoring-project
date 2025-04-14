@@ -4,7 +4,9 @@ package com.mma.backend.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mma.backend.entity.Judges;
 import com.mma.backend.entity.MatchProgress;
+import com.mma.backend.entity.Scores;
 import com.mma.backend.repository.JudgesRepository;
+import com.mma.backend.repository.ScoresRepository;
 import com.mma.backend.service.MatchProgressService;
 import com.mma.backend.service.ScoresService;
 import com.mma.backend.utils.WebSocketSender;
@@ -13,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
 
+import java.util.List;
 import java.util.Map;
 
 @Controller
@@ -22,7 +25,6 @@ public class WebSocketController {
 
     private final ObjectMapper objectMapper;
     private final ScoresService scoresService;
-    private final MatchProgressService matchProgressService;
     private final WebSocketSender webSocketSender;
     private final JudgesRepository judgesRepository;
 
@@ -59,31 +61,49 @@ public class WebSocketController {
 
             scoresService.saveScore(roundId, judgeDeviceId, redScore, blueScore);
 
-            //🔴 현재 경기에 대한 정보 가져오기
-//            MatchProgress matchProgress = matchProgressService.getCurrentProgress();
-//            int expectedjudgeCount = matchProgress.getJudgeCount();
-//
-//            //🔴 DB에 저장
-//            scoresService.saveScore(roundId, judgeDeviceId, redScore, blueScore);
-//
-//            //🔴 해당 대회의 심판 수와 해당 라운드에 입력된 점수의 수 비교
-//            int submittedCount = scoresService.countByRoundId(roundId);
-//
-//            //🔴 심판이 전부 제출하지 않았을 때
-//            if (submittedCount < expectedjudgeCount) {
-//                webSocketSender.sendWaiting(roundId);
-//                return;
-//            }
-//
-//            //🔴 심판이 전부 제출했을 때 -> 점수 합하기
-//            int totalRed = scoresService.sumRedScoreByRound(roundId);
-//            int totalBlue = scoresService.sumBlueScoreByRound(roundId);
-//            int roundNumber = scoresService.getRoundNumberById(roundId);
-//
-//            webSocketSender.sendComplete(roundId, roundNumber, totalRed, totalBlue, judge.getName());
-
         }catch(Exception e){
             log.error("❌ 점수 처리 중 오류 발생:", e);
+        }
+    }
+
+    //✅ 심판이 점수 수정할때 실행될 기능
+    @MessageMapping("/modify")
+    public void handleModifyRequest(String message) {
+        try{
+            Map<String, Object> data = objectMapper.readValue(message, Map.class);
+
+            if (!data.containsKey("judgeId") || data.get("judgeId") == null ||
+                    !data.containsKey("roundId") || data.get("roundId") == null) {
+                log.error("❌ judgeId 또는 roundId 누락: {}", data);
+                return;
+            }
+
+            String judgeDeviceId = data.get("judgeId").toString();
+            Long roundId = Long.parseLong(data.get("roundId").toString());
+
+            Judges judge = judgesRepository.findByDevicedId(judgeDeviceId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 심판 없음"));
+
+            //🔴 제출 상태 false로 바꾸기
+            scoresService.revertSubmission(roundId, judge.getId());
+
+            //🔴 다시 제출된 심판 목록 뽑아서 본부에 전송
+            List<Scores> all = scoresService.getScoresByRoundId(roundId);
+            List<String> submittedJudges = all.stream()
+                    .filter(Scores::isSubmitted)
+                    .map(score -> score.getJudges().getName())
+                    .toList();
+
+            Map<String, Object> updated = Map.of(
+                    "status", "MODIFIED",
+                    "roundId", roundId,
+                    "submittedJudges", submittedJudges
+            );
+
+            webSocketSender.sendModified(updated);
+
+        } catch (Exception e) {
+            log.error("❌ 수정 처리 중 오류 발생", e);
         }
     }
 }

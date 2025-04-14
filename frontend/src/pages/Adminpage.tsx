@@ -96,6 +96,34 @@ const Adminpage: React.FC = () => {
                         const parsed = JSON.parse(message.body);
                         console.log("✅ 받은 점수 전체 메시지:", parsed);
                         
+                        //🔴 심판이 점수 '수정중' 상태라면면
+                        if(parsed.status === "MODIFIED"){
+                            const roundId = Number(parsed.roundId);
+                            const judgeName = parsed.judgeName?.trim();
+
+                            //🔴 해당 심판 상태를 ⌛로 되돌리기
+                            setJudgeStatus(prev => {
+                                const roundJudges = prev[roundId] ?? [];
+                                const updated = roundJudges.map(judge => ({
+                                    ...judge,
+                                    submitted: judge.name.trim() === judgeName ? false : judge.submitted
+                                }));
+                                return {...prev, [roundId]: updated};
+                            });
+
+                            //🔴 해당 심판의 점수만 null로 되돌리기
+                            setScoreResults(prev => 
+                                prev.map(score => {
+                                    if(score.roundId !== roundId) return score;
+                                    return{
+                                        ...score, red: null, blue: null,
+                                    };
+                                })
+                            );
+
+                            return;
+                        }
+
                         if(parsed.status === "JOINED" && parsed.judgeName){
                             setJudgeStatus(prev => {
                                 const updated: typeof prev = { ...prev };
@@ -113,7 +141,7 @@ const Adminpage: React.FC = () => {
                               });
                         }
 
-                        //🔴 심판 전원은 미제출 했지만 소수는 했을때때
+                        //🔴 심판 전원은 미제출 했지만 소수만 제출한 상황 
                         if(parsed.status === "WAITING" || parsed.status === "COMPLETE"){
                             const roundId = Number(parsed.roundId);
                             const submittedJudges: string[] = parsed.submittedJudges ?? [];

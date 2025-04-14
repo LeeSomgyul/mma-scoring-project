@@ -128,25 +128,12 @@ public class ScoresService {
         return scoresRepository.countDistinctJudgeByRound(roundId);
     }
 
-    //✅ 해당 대회에 심판이 총 몇명인지
-    public int getTotalJudgeCount(){
-        return (int) judgesRepository.count();
+    public void revertSubmission(Long roundId, Long judgeId) {
+        Scores score = scoresRepository.findByRounds_IdAndJudges_Id(roundId, judgeId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 점수 없음"));
+
+        score.setSubmitted(false);
+        scoresRepository.save(score);
     }
 
-    //✅ 한 라운드에서 모든 심판이 준 레드 선수 점수 합산
-    public int sumRedScoreByRound(Long roundId){
-        return scoresRepository.findByRounds_Id(roundId).stream().mapToInt(Scores::getRedScore).sum();
-    }
-
-    //✅ 한 라운드에서 모든 심판이 준 블루 선수 점수 합산
-    public int sumBlueScoreByRound(Long roundId){
-        return scoresRepository.findByRounds_Id(roundId).stream().mapToInt(Scores::getBlueScore).sum();
-    }
-
-    //✅ 라운드 찾기
-    public int getRoundNumberById(Long roundId) {
-        return roundsRepository.findById(roundId)
-                .map(Rounds::getRoundNumber)
-                .orElseThrow(() -> new IllegalArgumentException("❌ 라운드를 찾을 수 없습니다."));
-    }
 }
