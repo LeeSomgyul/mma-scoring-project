@@ -57,28 +57,30 @@ public class WebSocketController {
                 return;
             }
 
-            //🔴 현재 경기에 대한 정보 가져오기
-            MatchProgress matchProgress = matchProgressService.getCurrentProgress();
-            int expectedjudgeCount = matchProgress.getJudgeCount();
-
-            //🔴 DB에 저장
             scoresService.saveScore(roundId, judgeDeviceId, redScore, blueScore);
 
-            //🔴 해당 대회의 심판 수와 해당 라운드에 입력된 점수의 수 비교
-            int submittedCount = scoresService.countByRoundId(roundId);
-
-            //🔴 심판이 전부 제출하지 않았을 때
-            if (submittedCount < expectedjudgeCount) {
-                webSocketSender.sendWaiting(roundId);
-                return;
-            }
-
-            //🔴 심판이 전부 제출했을 때 -> 점수 합하기
-            int totalRed = scoresService.sumRedScoreByRound(roundId);
-            int totalBlue = scoresService.sumBlueScoreByRound(roundId);
-            int roundNumber = scoresService.getRoundNumberById(roundId);
-
-            webSocketSender.sendComplete(roundId, roundNumber, totalRed, totalBlue, judge.getName());
+            //🔴 현재 경기에 대한 정보 가져오기
+//            MatchProgress matchProgress = matchProgressService.getCurrentProgress();
+//            int expectedjudgeCount = matchProgress.getJudgeCount();
+//
+//            //🔴 DB에 저장
+//            scoresService.saveScore(roundId, judgeDeviceId, redScore, blueScore);
+//
+//            //🔴 해당 대회의 심판 수와 해당 라운드에 입력된 점수의 수 비교
+//            int submittedCount = scoresService.countByRoundId(roundId);
+//
+//            //🔴 심판이 전부 제출하지 않았을 때
+//            if (submittedCount < expectedjudgeCount) {
+//                webSocketSender.sendWaiting(roundId);
+//                return;
+//            }
+//
+//            //🔴 심판이 전부 제출했을 때 -> 점수 합하기
+//            int totalRed = scoresService.sumRedScoreByRound(roundId);
+//            int totalBlue = scoresService.sumBlueScoreByRound(roundId);
+//            int roundNumber = scoresService.getRoundNumberById(roundId);
+//
+//            webSocketSender.sendComplete(roundId, roundNumber, totalRed, totalBlue, judge.getName());
 
         }catch(Exception e){
             log.error("❌ 점수 처리 중 오류 발생:", e);

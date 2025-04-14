@@ -26,14 +26,14 @@ public class Scores {
     @JoinColumn(name = "round_id")
     private Rounds rounds;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "judge_id")
     private Judges judges;
 
-    @Column(name = "red_score", nullable = false)
+    @Column(name = "red_score", nullable = true)
     private int redScore;
 
-    @Column(name = "blue_score", nullable = false)
+    @Column(name = "blue_score", nullable = true)
     private int blueScore;
 
     @Column(name = "is_submitted")

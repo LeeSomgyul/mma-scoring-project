@@ -18,25 +18,8 @@ public class WebSocketSender {
 
     private final SimpMessagingTemplate messagingTemplate;
 
-    public void sendComplete(Long roundId, int roundNumber, int totalRed, int totalBlue, String judgeName) {
-        Map<String, Object> result = Map.of(
-                "status", "COMPLETE",
-                "roundId", roundId,
-                "roundNumber", roundNumber,
-                "totalRed", totalRed,
-                "totalBlue", totalBlue,
-                "judgeName", judgeName
-        );
 
-        messagingTemplate.convertAndSend("/topic/messages", result);
-        log.info("📤 본부석에 합산 점수 전송 완료: {}", result);
-    }
-
-    public void sendWaiting(Long roundId) {
-        Map<String, Object> message = Map.of(
-                "status", "WAITING",
-                "roundId", roundId
-        );
+    public void sendWaiting(Map<String, Object> message) {
         messagingTemplate.convertAndSend("/topic/messages", message);
     }
 
@@ -76,5 +59,10 @@ public class WebSocketSender {
         }catch(Exception e){
             log.error("❌ 다음 경기 정보 전송 실패:", e);
         }
+    }
+
+    public void sendComplete(Map<String, Object> result) {
+        messagingTemplate.convertAndSend("/topic/messages", result);
+        log.info("📤 본부석에 전체 심판 제출 결과 전송 완료: {}", result);
     }
 }
