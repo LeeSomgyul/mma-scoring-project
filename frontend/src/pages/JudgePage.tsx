@@ -301,7 +301,9 @@ const JudgePage: React.FC = () => {
     if(stompClient && stompClient.connected && deviceId && roundId){
       const modifyMessage = {
         judgeId: deviceId,
-        roundId: roundId
+        roundId: roundId,
+        judgeName: name,
+        status: "MODIFIED"
       };
 
       stompClient.publish({

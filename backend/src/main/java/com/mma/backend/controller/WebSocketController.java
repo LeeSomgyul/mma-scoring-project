@@ -97,7 +97,8 @@ public class WebSocketController {
             Map<String, Object> updated = Map.of(
                     "status", "MODIFIED",
                     "roundId", roundId,
-                    "submittedJudges", submittedJudges
+                    "submittedJudges", submittedJudges,
+                    "judgeName", judge.getName()
             );
 
             webSocketSender.sendModified(updated);

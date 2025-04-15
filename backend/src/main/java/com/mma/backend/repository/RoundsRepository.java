@@ -13,4 +13,5 @@ public interface RoundsRepository extends JpaRepository<Rounds, Long> {
     List<Rounds> findByMatchId(Long matchId);
     void deleteByMatchId(Long matchId);
     Optional<Rounds> findByMatchAndRoundNumber(Matches matches, int roundNumber);
+    List<Rounds> findByMatch_Id(Long matchId);
 }

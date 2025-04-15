@@ -1,5 +1,7 @@
 package com.mma.backend.service;
 
+import com.mma.backend.dto.JudgeScoreResponse;
+import com.mma.backend.dto.RoundScoreResponse;
 import com.mma.backend.entity.Judges;
 import com.mma.backend.entity.Rounds;
 import com.mma.backend.entity.Scores;
@@ -9,12 +11,10 @@ import com.mma.backend.repository.ScoresRepository;
 import com.mma.backend.utils.WebSocketSender;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -25,7 +25,6 @@ public class ScoresService {
     private final RoundsRepository roundsRepository;
     private final JudgesRepository judgesRepository;
     private final WebSocketSender webSocketSender;
-    private final SimpMessagingTemplate messagingTemplate;
 
     //✅ 심판이 전송한 점수를 저장하는 기능
     public Optional<Map<String, Object>> saveScore(Long roundId, String judgeDeviceId, int redScore, int blueScore) {
@@ -62,9 +61,15 @@ public class ScoresService {
 
         //🔴 모든 점수 불러오기 + 제출된 심판 이름 추출
         List<Scores> all = scoresRepository.findByRounds_Id(roundId);
-        List<String> submittedJudges = all.stream()
+        List<Map<String, Object>> submittedJudges = all.stream()
                 .filter(Scores::isSubmitted)
-                .map(score -> score.getJudges().getName())
+                .map(score -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("name", score.getJudges().getName());
+                    map.put("red", score.getRedScore());
+                    map.put("blue", score.getBlueScore());
+                    return map;
+                })
                 .toList();
 
         //🔴 해당 라운드에 입력된 심판 점수 개수 확인
@@ -106,23 +111,6 @@ public class ScoresService {
         return scoresRepository.findByRounds_Id(roundId);
     }
 
-    //✅ 심판 전원 점수가 다 도착했는지 확인 후 -> 합산 점수 리턴
-    public Optional<RoundTotalScore> getTotalScoreIfComplete(Long roundId, int totalJudgeCount) {
-        List<Scores> scores = getScoresByRoundId(roundId);
-
-        //🔴 점수 보내지 않은 심판이 있다면, 본부로 점수 보내지 않음
-        if(scores.size() < totalJudgeCount) {
-            return Optional.empty();
-        }
-
-        int redTotal = scores.stream().mapToInt(Scores::getRedScore).sum();
-        int blueTotal = scores.stream().mapToInt(Scores::getBlueScore).sum();
-
-        return Optional.of(new RoundTotalScore(roundId, redTotal, blueTotal));
-    }
-
-    public record RoundTotalScore(Long roundId, int redTotal, int blueTotal) {}
-
     //✅ 해당 라운드에 점수가 몇개 저장되어져 있는지
     public int countByRoundId(Long roundId) {
         return scoresRepository.countDistinctJudgeByRound(roundId);
@@ -134,6 +122,26 @@ public class ScoresService {
 
         score.setSubmitted(false);
         scoresRepository.save(score);
+    }
+
+    public List<RoundScoreResponse> getRoundScoresByMatchId(Long matchId) {
+        List<Rounds> rounds = roundsRepository.findByMatch_Id(matchId);
+
+        return rounds.stream().map(round -> {
+            List<Scores> scores = scoresRepository.findByRounds_Id(round.getId());
+
+            List<JudgeScoreResponse> judgeScores = scores.stream().map(score -> {
+                Judges judge = score.getJudges();
+                return new JudgeScoreResponse(
+                        judge.getName(),
+                        score.getRedScore(),
+                        score.getBlueScore(),
+                        score.isSubmitted()
+                );
+            }).toList();
+
+            return new RoundScoreResponse(round.getId(), round.getRoundNumber(), judgeScores);
+        }).toList();
     }
 
 }
