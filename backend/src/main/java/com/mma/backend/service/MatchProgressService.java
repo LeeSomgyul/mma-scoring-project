@@ -1,8 +1,10 @@
 package com.mma.backend.service;
 
+import com.mma.backend.entity.Judges;
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.entity.Matches;
 import com.mma.backend.entity.Rounds;
+import com.mma.backend.repository.JudgesRepository;
 import com.mma.backend.repository.MatchProgressRepository;
 import com.mma.backend.repository.MatchesRepository;
 import com.mma.backend.repository.RoundsRepository;
@@ -22,6 +24,7 @@ public class MatchProgressService {
     private final MatchProgressRepository matchProgressRepository;
     private final MatchesRepository matchesRepository;
     private final RoundsRepository roundsRepository;
+    private final JudgesRepository judgesRepository;
     private final WebSocketSender webSocketSender;
 
     //✅ 현재 경기 정보를 DB에 저장하기 위한 MatchProgress 생성
@@ -115,10 +118,17 @@ public class MatchProgressService {
         //🔴 다음 순서 경기 꺼내오기
         Matches nextMatch = matches.get(currentIndex + 1);
 
+        //🔴 연결된 모든 심판의 matchId를 다음 경기id로 연결
+        List<Judges> connectedJudges = judgesRepository.findByIsConnectedTrue();
+        for(Judges judge : connectedJudges){
+            judge.setMatch(nextMatch);
+            judgesRepository.save(judge);
+        }
+
+        //🔴 다음 경기용 MatchProgress 새로 만들기
         Rounds firstRound = roundsRepository.findByMatchAndRoundNumber(nextMatch, 1)
                 .orElseThrow(() -> new IllegalArgumentException("❌ 다음 매치에 라운드 없음"));
 
-        //🔴 다음 경기용 MatchProgress 새로 만들기
         MatchProgress progress = MatchProgress.builder()
                 .currentMatch(nextMatch)
                 .currentRoundNumber(1)
@@ -137,5 +147,10 @@ public class MatchProgressService {
     @Transactional(readOnly = true)
     public Optional<MatchProgress> findCurrentProgress (){
         return matchProgressRepository.findCurrentProgress();
+    }
+
+    public Matches findMatchById(Long matchId){
+        return matchesRepository.findById(matchId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 경기 정보를 찾을 수 없습니다: " + matchId));
     }
 }

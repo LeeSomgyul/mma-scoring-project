@@ -35,4 +35,5 @@ public class MatchProgress {
 
     @Column(name = "judge_count")
     private Integer judgeCount;//현재 경기의 심판 수
+
 }

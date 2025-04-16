@@ -12,4 +12,5 @@ public interface MatchProgressRepository extends JpaRepository<MatchProgress, Lo
 
     @Query("SELECT m FROM MatchProgress m WHERE m.isEndOfMatch = false")
     Optional<MatchProgress> findCurrentProgress();//현재 진행 중인 경기 정보 조회
+
 }

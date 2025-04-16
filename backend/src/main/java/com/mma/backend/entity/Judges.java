@@ -24,4 +24,8 @@ public class Judges {
 
     @Column(name = "is_connected")
     private boolean isConnected = false;
+
+    @ManyToOne
+    @JoinColumn(name = "match_id")
+    private Matches match;
 }

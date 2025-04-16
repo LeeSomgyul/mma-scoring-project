@@ -167,10 +167,20 @@ const JudgePage: React.FC = () => {
       if(response.data === true){
         const deviceId = getOrCreateDeviceId();
 
+        const matchId = matchInfo?.id;
+        if (!matchId) {
+          alert("❌ matchId가 없습니다. 경기 정보를 다시 불러와주세요.");
+          return;
+        }
+
         let judgeResponse;
         try{
           judgeResponse = await axios.post(`${baseURL}/api/judges`, null, {
-            params: {name, deviceId},
+            params: {
+              name,
+              deviceId,
+              matchId,
+            },
             validateStatus: () => true
           });
         }catch(error){

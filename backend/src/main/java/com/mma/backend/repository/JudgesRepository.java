@@ -11,5 +11,7 @@ import java.util.Optional;
 public interface JudgesRepository extends JpaRepository<Judges, Long> {
     Optional<Judges> findByDevicedId(String deviceId);
     int countByIsConnectedTrue();
+    List<Judges> findByMatch_Id(Long matchId);
+    List<Judges> findByIsConnectedTrueAndMatch_Id(Long matchId);
     List<Judges> findByIsConnectedTrue();
 }

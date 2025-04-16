@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -127,20 +128,45 @@ public class ScoresService {
     public List<RoundScoreResponse> getRoundScoresByMatchId(Long matchId) {
         List<Rounds> rounds = roundsRepository.findByMatch_Id(matchId);
 
-        return rounds.stream().map(round -> {
-            List<Scores> scores = scoresRepository.findByRounds_Id(round.getId());
+        //🔴 현재 경기에서 활동중인 모든 심판 리스트
+        List<Judges> allJudges = judgesRepository.findByMatch_Id(matchId);
 
-            List<JudgeScoreResponse> judgeScores = scores.stream().map(score -> {
-                Judges judge = score.getJudges();
-                return new JudgeScoreResponse(
-                        judge.getName(),
-                        score.getRedScore(),
-                        score.getBlueScore(),
-                        score.isSubmitted()
-                );
+        return rounds.stream().map(round -> {
+            Long roundId = round.getId();
+
+            //🔴 현재 라운드에서 점수 제출한 사람
+            List<Scores> submittedScores = scoresRepository.findByRounds_Id(roundId);
+
+            //🔴 점수 제출된 심판 이름
+            Map<String, Scores> submittedMap = submittedScores.stream()
+                    .collect(Collectors.toMap(
+                            s -> s.getJudges().getName(),
+                            s -> s
+                    ));
+
+            //🔴 전체 심판을 기준으로 모든 사람들 돌기
+            List<JudgeScoreResponse> judgeScores = allJudges.stream().map(judge -> {
+                Scores score = submittedMap.get(judge.getName());
+                //🔴 점수 제출한 심판 정보
+                if(score != null) {
+                    return new JudgeScoreResponse(
+                      judge.getName(),
+                      score.getRedScore(),
+                      score.getBlueScore(),
+                      score.isSubmitted()
+                    );
+                }else{
+                    //🔴 점수 미제출 심판 정보
+                    return new JudgeScoreResponse(
+                            judge.getName(),
+                            null,
+                            null,
+                            false
+                    );
+                }
             }).toList();
 
-            return new RoundScoreResponse(round.getId(), round.getRoundNumber(), judgeScores);
+            return new RoundScoreResponse(roundId, round.getRoundNumber(), judgeScores);
         }).toList();
     }
 

@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from "react-router-dom";
 
+import { resetAllStores } from "../utils/resetLocalStorage";
+
 const HomePage: React.FC = () => {
 
     const navigate = useNavigate();
@@ -12,6 +14,12 @@ const HomePage: React.FC = () => {
             <div>
                 <button onClick={() => navigate("/admin")}>👨‍💼 본부석 입장</button>
             </div>
+            <button onClick={() => {
+            resetAllStores();
+            window.location.reload();
+            }}>
+            ⚠️ 로컬 상태 초기화
+            </button>
         </div>
     );
 };

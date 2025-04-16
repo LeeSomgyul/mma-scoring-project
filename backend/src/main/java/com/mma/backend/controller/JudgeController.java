@@ -1,5 +1,6 @@
 package com.mma.backend.controller;
 
+import com.mma.backend.dto.JudgeResponse;
 import com.mma.backend.entity.Judges;
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.entity.Matches;
@@ -16,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -33,14 +33,23 @@ public class JudgeController {
 
     //✅ 심판 입장 시 정보 등록하는 기능
     @PostMapping
-    public ResponseEntity<?> registerJudge (@RequestParam String name, @RequestParam String deviceId) {
+    public ResponseEntity<?> registerJudge (
+            @RequestParam String name,
+            @RequestParam String deviceId,
+            @RequestParam Long matchId
+    ) {
         //🔴 입장 제한 체크(인원 초과될 수 있으니까)
         if(judgesService.isJudgeLimitReached()){
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body("이미 심판 인원이 모두 입장하였습니다.");
         }
 
+        Matches match = matchProgressService.findMatchById(matchId);
+
         Judges judge = judgesService.registerJudge(name, deviceId);
+        judge.setMatch(match);
+        judge.setConnected(true);
+        judgesRepository.save(judge);
 
         //🔴 심판 입장 시 websocket 메시지 전송
         Map<String, Object> joinedJudge = Map.of(
@@ -50,7 +59,8 @@ public class JudgeController {
 
         messagingTemplate.convertAndSend("/topic/messages", joinedJudge);
 
-        return ResponseEntity.ok(judge);
+        JudgeResponse judgeResponse = new JudgeResponse(judge.getName(), judge.isConnected());
+        return ResponseEntity.ok(judgeResponse);
     }
 
     //✅ 심판의 연결 상태 업데이트(연결 끊길수도 있으니까 여부 확인)
@@ -75,23 +85,13 @@ public class JudgeController {
 
     //✅ 본부석에 현재 경기에 참가한 심판 이름 목록 전송
     @GetMapping("/current")
-    public ResponseEntity<List<Map<String, Object>>> getCurrentJudges() {
-        Optional<MatchProgress> currentProgressOpt = matchProgressService.findCurrentProgress();
-
-        if(currentProgressOpt.isEmpty()){
-            return ResponseEntity.ok(List.of());
-        }
-
+    public ResponseEntity<List<JudgeResponse>> getCurrentJudges(@RequestParam Long matchId) {
         //🔴 현재 접속 중인 심판들 중, 이번 경기와 연결된 심판만 가져오기
-        List<Judges> judges = judgesRepository.findByIsConnectedTrue();
+        List<Judges> judges = judgesRepository.findByIsConnectedTrueAndMatch_Id(matchId);
 
-        List<Map<String, Object>> judgeNames = judges.stream()
-                .map(judge -> {
-                    Map<String, Object> judgeMap = new HashMap<>();
-                    judgeMap.put("name", judge.getName());
-                    return judgeMap;
-                })
-                .collect(Collectors.toList());
+        List<JudgeResponse> judgeNames = judges.stream()
+                .map(judge -> new JudgeResponse(judge.getName(), judge.isConnected()))
+                .toList();
 
         return ResponseEntity.ok(judgeNames);
     }

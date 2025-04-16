@@ -5,50 +5,35 @@ import { Client } from "@stomp/stompjs";
 import * as XLSX from "xlsx";
 import QRCode from "react-qr-code";
 
-interface Match {
-    id: number;
-    matchNumber: number;
-    division: string;
-    roundCount: number;
-    redName: string;
-    redGym: string;
-    blueName: string;
-    blueGym: string;
-    createdAt: string;
-}
+//✅ zustand store import
+import { useMatchStore } from "../stores/useMatchStore";
+import { useScoreStore } from "../stores/useScoreStore";
+import { useQRStore } from "../stores/useQRStore";
+import type { RoundScore, JudgeScore } from "../stores/useScoreStore";
+import type { Match } from "../stores/useMatchStore";
 
-interface JudgeScore {
-    judgeName: string;
-    red: number | null;
-    blue: number | null;
-    submitted: boolean;
-}
-
-interface RoundScore {
-    roundId: number;
-    roundNumber: number;
-    judges: JudgeScore[];
-}
 
 const Adminpage: React.FC = () => {
-    const [matches, setMatches] = useState<Match[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
+    //✅ zustand의 isHydrated 가져오기
+    const matchHydrated = useMatchStore((s) => s.isHydrated);
+    const scoreHydrated = useScoreStore((s) => s.isHydrated);
+    const qrHydrated = useQRStore((s) => s.isHydrated);
+    const allHydrated = matchHydrated && scoreHydrated && qrHydrated;
+    
+    //✅ zustand 상태 적용
+    const { matches, setMatches, currentIndex, setCurrentIndex } = useMatchStore();
+    const { roundScores, setRoundScores, currentRoundIndex, setCurrentRoundIndex, scoreStatus, setScoreStatus } = useScoreStore();
+    const { showQRButton, setShowQRButton, qrGenerated, setQrGenerated, isPasswordSet, setIsPasswordSet, accessCode, setAccessCode,  isFileUploaded, setIsFileUploaded } = useQRStore();
+    
+    //✅ 일반
+    const [showQR, setShowQR] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [sheetNames, setSheetNames] = useState<string[]>([]);
     const [selectedSheet, setSelectedSheet] = useState<number | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isFileUploaded, setIsFileUploaded] = useState(false);
-    const [showQR, setShowQR] = useState(false);
-    const [showQRButton, setShowQRButton] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [password, setPassword] = useState<string>("");
-    const [isPasswordSet, setIsPasswordSet] = useState(false);
     const [judgeCount, setJudgeCount] = useState<number | null>(null);
-    const [qrGenerated, setQrGenerated] = useState(false);
-    const [accessCode, setAccessCode] = useState("");
-    const [scoreStatus, setScoreStatus] = useState<string>("⏳ 점수 대기 중...");
-    const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
-    const [roundScores, setRoundScores] = useState<RoundScore[]>([]);
     const [isReconnected, setIsReconnected] = useState(false);
     const initializedOnceRef = useRef(false);
 
@@ -64,13 +49,12 @@ const Adminpage: React.FC = () => {
         return sum + redSum;
       }, 0);
       
-      const blueTotal = roundScores.reduce((sum, round) => {
+    const blueTotal = roundScores.reduce((sum, round) => {
         const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);
         if (!allSubmitted) return sum;
         const blueSum = round.judges.reduce((b, judge) => b + (judge.blue ?? 0), 0);
         return sum + blueSum;
-      }, 0);
-
+    }, 0);
 
     useEffect(() => {
         if (qrGenerated && accessCode) {
@@ -79,6 +63,8 @@ const Adminpage: React.FC = () => {
         }
       }, [qrGenerated, accessCode]);
 
+
+    //✅ 네트워크 끊김 또는 심판 데이터 최신화 작업
     useEffect(() => {
         const fetchSavedScores = async () => {
           if (!isReconnected || !matches[currentIndex]) return;
@@ -102,178 +88,162 @@ const Adminpage: React.FC = () => {
 
     //✅ WebSocket 연결
     useEffect(() => {
-        const socket = new SockJS("/ws");
-        const stompClient = new Client({
-            webSocketFactory: () => socket,
-            reconnectDelay: 5000,
-            onConnect: () => {
-                console.log("✅ 본부석 WebSocket 연결 완료");
-                setIsReconnected(true);
-                
-                //🔴 현재 경기의 심판 목록을 서버에서 다시 가져오기
-                if (matches[currentIndex]?.id) {
-                    axios.get(`${baseURL}/api/judges/current`)
-                        .then(response => {
-                            const judgeList = response.data;
-                            console.log("WebSocket 재연결 후 심판 목록:", judgeList);
+        let stompClient: Client;
 
-                            setRoundScores(prev =>
-                                prev.map(round => ({
-                                    ...round,
-                                    judges: judgeList.map((judge: any) => {
-                                        const existingJudge = round.judges.find(j => j.judgeName === judge.name);
-                                        return existingJudge || {
-                                            judgeName: judge.name,
-                                            red: null,
-                                            blue: null,
-                                            submitted: false,
-                                        };
-                                    }),
-                                }))
-                            );
-                        })
-                        .catch(error => {
-                            console.error("❌ 심판 목록 복원 실패:", error);
-                        });
-            }
-
-                //🔴 서버에서 점수 받기
-                stompClient.subscribe("/topic/messages", (message) => {
-                    try{
-                        const parsed = JSON.parse(message.body);
-                        console.log("✅ 받은 점수 전체 메시지:", parsed);
-                        
-                        //🔴 심판이 점수 '수정중' 상태라면면
-                        if (parsed.status === "MODIFIED") {
-                            const roundId = Number(parsed.roundId);
-                            const judgeName = parsed.judgeName?.trim(); 
-                        
-                            setRoundScores(prev =>
-                                prev.map(round => {
-                                    if (round.roundId !== roundId) return round;
-
-                                    const updatedJudges = round.judges.map(j => {
-                                        if (j.judgeName.trim() !== judgeName) return j;
+        const runWebSocket = () => {
+            const socket = new SockJS("/ws");
+            stompClient = new Client({
+                webSocketFactory: () => socket,
+                reconnectDelay: 5000,
+                onConnect: () => {
+                    console.log("✅ 본부석 WebSocket 연결 완료");
+                    setIsReconnected(true);
+    
+                    //🔴 서버에서 점수 받기
+                    stompClient.subscribe("/topic/messages", (message) => {
+                        try{
+                            const parsed = JSON.parse(message.body);
+                            console.log("✅ 받은 점수 전체 메시지:", parsed);
+                            
+                            //🔴 심판이 점수 '수정중' 상태라면
+                            if (parsed.status === "MODIFIED") {
+                                const roundId = Number(parsed.roundId);
+                                const judgeName = parsed.judgeName?.trim(); 
+                            
+                                setRoundScores(prev =>
+                                    prev.map(round => {
+                                        if (round.roundId !== roundId) return round;
+                                        const updatedJudges = round.judges.map(j =>
+                                            j.judgeName.trim() === judgeName
+                                                ? { ...j, red: null, blue: null, submitted: false }
+                                                : j
+                                        );
+                                    return { ...round, judges: updatedJudges };
+                                    })
+                                );
+                            }
+    
+                            if (parsed.status === "JOINED" && parsed.judgeName) {
+                                const judgeName = parsed.judgeName.trim();
+                            
+                                setRoundScores(prev =>
+                                    prev.map(round => {
+                                        const alreadyExists = round.judges.some(j => j.judgeName.trim() === judgeName);
+                                        if (alreadyExists) return round;
                                         return {
-                                            ...j,
-                                            red: null,
-                                            blue: null,
-                                            submitted: false
+                                            ...round,
+                                            judges: [...round.judges, {
+                                                judgeName,
+                                                red: null,
+                                                blue: null,
+                                                submitted: false
+                                            }]
                                         };
-                                    });
-                                    return {
-                                        ...round,
-                                        judges: updatedJudges
-                                    };
-                                })
-                            );
-                        }
-
-                        if (parsed.status === "JOINED" && parsed.judgeName) {
-                            const judgeName = parsed.judgeName.trim();
-                        
-                            setRoundScores(prev =>
-                                prev.map(round => {
-                                    const alreadyExists = round.judges.some(j => j.judgeName.trim() === judgeName);
-                                    if (alreadyExists) return round;
-                        
-                                    const updatedJudges = [...round.judges, {
-                                        judgeName,
-                                        red: null,
-                                        blue: null,
-                                        submitted: false
-                                    }];
-                                    return {
-                                        ...round,
-                                        judges: updatedJudges
-                                    };
-                                })
-                            );
-                        }
-
-                        //🔴 심판 전원은 미제출 했지만 소수만 제출한 상황 
-                        if (parsed.status === "WAITING") {
-                            const roundId = Number(parsed.roundId);
-                            const submittedJudges: { name: string; red: number; blue: number }[] = parsed.submittedJudges ?? [];
-                        
-                            setRoundScores(prev =>
-                                prev.map(round => {
-                                    if (round.roundId !== roundId) return round;
-                                    const updatedJudges = round.judges.map(j => {
-                                        const found = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
-                                        return found
-                                            ? {
-                                                ...j,
-                                                submitted: true,
-                                                red: found.red,
-                                                blue: found.blue
-                                            }
+                                    })
+                                );
+                            }
+    
+                            //🔴 심판 전원은 미제출 했지만 소수만 제출한 상황 
+                            if (parsed.status === "WAITING") {
+                                const roundId = Number(parsed.roundId);
+                                const submittedJudges: { name: string; red: number; blue: number }[] = parsed.submittedJudges ?? [];
+                            
+                                setRoundScores(prev =>
+                                    prev.map(round => {
+                                        if (round.roundId !== roundId) return round;
+                                        const updatedJudges = round.judges.map(j => {
+                                            const found = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
+                                            return found
+                                            ? { ...j, submitted: true, red: found.red, blue: found.blue }
                                             : j;
-                                    });
-                                    return {
-                                        ...round,
-                                        judges: updatedJudges
-                                    };
-                                })
-                            );
+                                        });
+                                        return { ...round, judges: updatedJudges };
+                                    })
+                                );
+                            }
+                            
+                            if (parsed.status === "COMPLETE") {
+                                const roundId = Number(parsed.roundId);
+                                const submittedJudges: { name: string; red: number; blue: number }[] = parsed.submittedJudges ?? [];
+                            
+                                setRoundScores(prev =>
+                                    prev.map(round => {
+                                        if (round.roundId !== roundId) return round;
+    
+                                        const updatedJudges = round.judges.map(j => {
+                                            const match = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
+                                            return match
+                                            ? { ...j, submitted: true, red: match.red, blue: match.blue }
+                                            : j;
+                                        });
+                                        return { ...round, judges: updatedJudges };
+                                    })
+                                );
+                            
+                                setScoreStatus("✅ 합산 완료!");
+                            }
+    
+                        }catch(e){
+                            console.error("❌ 메시지 json 변경 실패:", e);
                         }
-                        
-                        if (parsed.status === "COMPLETE") {
-                            const roundId = Number(parsed.roundId);
-                            const submittedJudges: { name: string; red: number; blue: number }[] = parsed.submittedJudges ?? [];
-                        
-                            setRoundScores(prev =>
-                                prev.map(round => {
-                                    if (round.roundId !== roundId) return round;
-
-                                    const updatedJudges = round.judges.map(j => {
-                                        const match = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
-                                        return match
-                                          ? {
-                                              ...j,
-                                              submitted: true,
-                                              red: match.red,
-                                              blue: match.blue,
-                                            }
-                                          : j;
-                                    });
-
-                                    return {
-                                        ...round,
-                                        judges: updatedJudges
-                                    };
-                                })
-                            );
-                        
-                            setScoreStatus("✅ 합산 완료!");
-                        }
-
-                    }catch(e){
-                        console.error("❌ 메시지 json 변경 실패:", e);
-                    }
-                });
-            },
-
-            onStompError: (frame) => {
-                console.error("❌ STOMP 에러:", frame.headers["message"]);
-            },
-
-            onWebSocketError: (event) => {
-                console.error("❌ WebSocket 에러:", event);
-            },
-        });
-
-        stompClient.activate();
+                    });
+                },
+    
+                onStompError: (frame) => console.error("❌ STOMP 에러:", frame.headers["message"]),
+                onWebSocketError: (event) => console.error("❌ WebSocket 에러:", event)
+            });
+    
+            stompClient.activate();
+        };
+        runWebSocket();
 
         return () => {
-            stompClient.deactivate();
-        };
-    }, [matches[currentIndex]?.id]);
+            if (stompClient) stompClient.deactivate();
+          };
+    }, []);
+
+    //✅ 심판 목록 가져오는 요청
+    useEffect(() => {
+        const currentMatchId = matches[currentIndex]?.id;
+        if (!allHydrated || !currentMatchId) {
+            console.warn("❌ matchId가 없어 심판 목록 요청을 건너뜀");
+            return;
+        }
+
+        axios.get(`${baseURL}/api/judges/current`, {
+            params: {matchId: currentMatchId}
+        })
+            .then(response => {
+                const judgeList = response.data;
+                console.log("📁 WebSocket 재연결 후 심판 목록:", judgeList);
+
+                setRoundScores((prev) =>
+                    prev.map((round) => ({
+                        ...round,
+                        judges: judgeList.length > 0
+                            ? judgeList.map((judge: any) => {
+                            const existingJudge = round.judges.find((j) => j.judgeName === judge.name);
+                            return existingJudge || {
+                                judgeName: judge.name,
+                                red: null,
+                                blue: null,
+                                submitted: false,
+                            };
+                        })
+                        :round.judges
+                    }))
+                );
+            })
+            .catch(error => {
+                console.error("❌ 심판 목록 복원 실패:", error);
+            });
+    }, [allHydrated, currentIndex]);
 
     useEffect(() => {
-        console.log("🧪 roundScores 갱신됨:", roundScores);
-      }, [roundScores]);
-  
+        console.log("✅ match hydrated:", useMatchStore.getState().isHydrated);
+      }, []);
+      
+
 
     //✅ 전체 경기 정보 불러오기
     const fetchMatches = () => {
@@ -329,29 +299,32 @@ const Adminpage: React.FC = () => {
     };
 
     //✅ 액셀 업로드 버튼
-    const handleFileUpload = async() => {
-
-        if(!file){
+    const handleFileUpload = async () => {
+        if (!file) {
             alert("엑셀 파일을 선택해주세요!");
             return;
         }
-
-        if(selectedSheet === null){
+    
+        if (selectedSheet === null) {
             alert("시트를 선택해주세요!");
             return;
         }
-
+    
         const formData = new FormData();
         formData.append("file", file);
         formData.append("sheet", String(selectedSheet + 1));
-
-        try{
+    
+        try {
             const response = await axios.post(`${baseURL}/api/matches/upload`, formData, {
-                headers: {"Content-Type": "multipart/form-data"},
+                headers: { "Content-Type": "multipart/form-data" },
             });
+
             setIsFileUploaded(true);
+
             setShowQRButton(true);
+
             setIsModalOpen(false);
+
             fetchMatches();
         }catch(error){
             console.error("❌ 업로드 실패:", error);
@@ -389,12 +362,16 @@ const Adminpage: React.FC = () => {
               const [matchesRes, roundsRes, judgesRes] = await Promise.all([
                 axios.get(`${baseURL}/api/matches`),
                 axios.get(`${baseURL}/api/rounds/match/${nextMatchId}`),
-                axios.get(`${baseURL}/api/judges/current`),
+                axios.get(`${baseURL}/api/judges/current`, {
+                    params:{matchId: nextMatchId},
+                }),
               ]);
       
               const allMatches = matchesRes.data;
               const roundList = roundsRes.data;
               const judgeList = judgesRes.data;
+
+              console.log("handlenext에서의 judgelist: ", judgeList);
       
               const nextIndex = allMatches.findIndex((m: Match) => m.id === nextMatchId);
               if (nextIndex === -1) {
@@ -480,86 +457,102 @@ const Adminpage: React.FC = () => {
         }
     };
 
+
+    //✅ 로컬스토리지에서 불러오는 중일때
+    if (!allHydrated) {
+        return (
+          <div>
+            <p>⏳ 상태를 불러오는 중입니다...</p>
+          </div>
+        );
+      }
+    
+    //✅ 엑셀 등록하기 전이라 경기 정보가 없을 때
+    if(matches.length === 0){
+        return(
+            <div>
+                <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
+
+                <button onClick={handleModalOpen}>
+                    {isFileUploaded ? "📄 파일 수정" : "📥 파일 업로드"}
+                </button>
+
+                {isModalOpen && (
+                    <div style={{ border: "1px solid #aaa", padding: 20, marginTop: 20 }}>
+                        <h3>📁엑셀 파일 업로드</h3>
+                        <input type="file" accept=".xlsx, .xls" onChange={handleFileChange}/>
+                        {sheetNames.length > 0 && (
+                            <select onChange={(e) => setSelectedSheet(Number(e.target.value))}>
+                                <option value="">시트를 선택하세요</option>
+                                {sheetNames.map((name, idx) => (
+                                    <option key={name} value={idx}>{`${idx + 1}번 시트: ${name}`}</option>
+                                ))}
+                            </select>
+                        )}    
+                        <div>
+                            <button onClick={handleFileUpload}>📤엑셀 업로드</button>
+                            <button onClick={handleModalClose}>❌닫기</button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     return(
         <div>
-            <button onClick={handleModalOpen}>{isFileUploaded ? "📄 파일 수정" : "📥 파일 업로드"}</button>
-            {isModalOpen && (
-                <div style={{ border: "1px solid #aaa", padding: 20, marginTop: 20 }}>
-                    <h3>📁엑셀 파일 업로드</h3>
-                    <input type="file" accept=".xlsx, .xls" onChange={handleFileChange}/>
-                    {sheetNames.length > 0 && (
-                        <select onChange={(e) => setSelectedSheet(Number(e.target.value))}>
-                            <option value="">시트를 선택하세요</option>
-                            {sheetNames.map((name, idx) => (
-                                <option key={name} value={idx}>{`${idx + 1}번 시트: ${name}`}</option>
-                            ))}
-                        </select>
-                    )}    
-                    <div>
-                        <button onClick={handleFileUpload}>📤엑셀 업로드</button>
-                        <button onClick={handleModalClose}>❌닫기</button>
-                    </div>
-                </div>
-            )}
+            <div>
+                <span>{current.matchNumber}경기</span>
+                <span>{current.division}</span>
+            </div>
+            <div>
+                {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
+            </div>
+            {roundScores.map((round, index) => {
+                const redSum = round.judges
+                .filter(j => j.submitted)
+                .reduce((acc, j) => acc + (j.red ?? 0), 0);
             
-            {matches.length > 0 ? (
-                <>
-                    <div>
-                        <span>{current.matchNumber}경기</span>
-                        <span>{current.division}</span>
-                    </div>
-                    <div>
-                        {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
-                    </div>
-                {roundScores.map((round, index) => {
-                    const redSum = round.judges
+                const blueSum = round.judges
                     .filter(j => j.submitted)
-                    .reduce((acc, j) => acc + (j.red ?? 0), 0);
-                
-                    const blueSum = round.judges
-                        .filter(j => j.submitted)
-                        .reduce((acc, j) => acc + (j.blue ?? 0), 0);
+                    .reduce((acc, j) => acc + (j.blue ?? 0), 0);
 
-                    const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);      
+                const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);      
 
-                    return(
-                        <div key={round.roundId}>
-                            <div>
-                                {round.roundNumber}라운드: {" "}
-                                {allSubmitted ? `${redSum}점 : ${blueSum}점` : "-점 : -점"}
-                            </div>
-                            <div>
-                                {round.judges.length > 0 ? (
-                                    round.judges.map((judge, idx) => (
-                                        <span key={idx}>
-                                        {`${judge.judgeName} ${judge.submitted ? "✅" : "⌛"}`}
-                                        </span>
-                                    ))
-                                    ) : (
-                                    <div>🙋 심판 미입장</div>
-                                )}
-                            </div>
+                return(
+                    <div key={round.roundId}>
+                        <div>
+                            {round.roundNumber}라운드: {" "}
+                            {allSubmitted ? `${redSum}점 : ${blueSum}점` : "-점 : -점"}
                         </div>
-                    );
-                })}
-                    <div>
-                        <span>합계: </span>
-                        <span>{redTotal}점</span>
-                        <span>{blueTotal}점</span>
+                        <div>
+                            {round.judges.length > 0 ? (
+                                round.judges.map((judge, idx) => (
+                                    <span key={idx}>
+                                    {`${judge.judgeName} ${judge.submitted ? "✅" : "⌛"}`}
+                                    </span>
+                                ))
+                            ) : (
+                                    <div>🙋 심판 미입장</div>
+                            )}
+                        </div>
                     </div>
-                    <button onClick={() => {
-                        if(!isAllScoresSubmitted()){
-                            const proceed = confirm("⚠️ 아직 모든 점수가 입력되지 않았습니다. KO 등 경기 종료로 다음 경기로 이동하시겠습니까?");
-                            if(!proceed) return;
-                        }
-                        handleNext();
-                    }}>
-                        다음 경기👉
-                    </button>
-                </>
-            ) : (
-                <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
-            )}
+                );
+            })}
+            <div>
+                <span>합계: </span>
+                <span>{redTotal}점</span>
+                <span>{blueTotal}점</span>
+            </div>
+            <button onClick={() => {
+                if(!isAllScoresSubmitted()){
+                    const proceed = confirm("⚠️ 아직 모든 점수가 입력되지 않았습니다. KO 등 경기 종료로 다음 경기로 이동하시겠습니까?");
+                    if(!proceed) return;
+                }
+                handleNext();
+            }}>
+                다음 경기👉
+            </button>
 
             {showQRButton && !isPasswordSet && (
                 <div>

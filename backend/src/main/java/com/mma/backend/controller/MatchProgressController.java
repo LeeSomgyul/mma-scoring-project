@@ -2,7 +2,6 @@ package com.mma.backend.controller;
 
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.service.MatchProgressService;
-import com.mma.backend.utils.WebSocketSender;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +15,6 @@ import java.util.Map;
 public class MatchProgressController {
 
     private final MatchProgressService matchProgressService;
-    private final WebSocketSender webSocketSender;
 
     //✅ 경기 시작 -> MatchProgress 생성
     @PostMapping("/start")
