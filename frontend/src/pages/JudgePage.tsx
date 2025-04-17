@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom';
 import SockJS from "sockjs-client";
 import axios from "axios";
 import { Client } from "@stomp/stompjs";
@@ -9,7 +10,6 @@ import { useJudgeStore } from "../stores/useJudgeStore";
 import { useJudgeScoreStore } from "../stores/useJudgeScoreStore";
 import { useJudgeMatchStore } from "../stores/useJudgeMatchStore";
 import { useMatchStore } from "../stores/useMatchStore";
-import {resetJudgeStorage} from "../utils/resetJudgeStorage"
 
 interface MyScore {
   red: string;
@@ -44,6 +44,7 @@ const JudgePage: React.FC = () => {
   //✅ 전역 변수
   const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
+  const navigate = useNavigate();
   
 
 
@@ -426,6 +427,19 @@ const JudgePage: React.FC = () => {
     }
   };
 
+  //✅ 경기 종료 시 로컬스토리지 초기화 버튼
+  const handleOut = () => {
+    const confirmEnd = window.confirm("경기를 종료하시겠습니까?(초기화)");
+    if (!confirmEnd) return;
+
+    localStorage.removeItem("judge-score-storage");
+    localStorage.removeItem("judge-info-storage");
+    localStorage.removeItem("judge-match-storage");
+
+    alert("✅ 데이터가 초기화되었습니다.");
+    navigate("/judge-end");
+  };
+
   return (
     <div>
       {!isVerified ? (
@@ -479,14 +493,13 @@ const JudgePage: React.FC = () => {
               </div>
             ))}
           </div>
+          <button onClick={handleOut}>
+            경기종료
+          </button>
         </>
       ) : (
         <div>⏳ 경기 정보를 불러오는 중입니다...</div>
       )}
-      <button onClick={() => {
-            resetJudgeStorage();
-            window.location.reload();
-            }}>⚠️ judge 데이터 초기화</button>
     </div>
   );
 };

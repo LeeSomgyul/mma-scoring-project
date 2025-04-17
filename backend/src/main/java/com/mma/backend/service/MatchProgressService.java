@@ -4,10 +4,7 @@ import com.mma.backend.entity.Judges;
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.entity.Matches;
 import com.mma.backend.entity.Rounds;
-import com.mma.backend.repository.JudgesRepository;
-import com.mma.backend.repository.MatchProgressRepository;
-import com.mma.backend.repository.MatchesRepository;
-import com.mma.backend.repository.RoundsRepository;
+import com.mma.backend.repository.*;
 import com.mma.backend.utils.WebSocketSender;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +23,8 @@ public class MatchProgressService {
     private final RoundsRepository roundsRepository;
     private final JudgesRepository judgesRepository;
     private final WebSocketSender webSocketSender;
+    private final ScoresRepository scoresRepository;
+    private final JudgeAccessRepository judgeAccessRepository;
 
     //✅ 현재 경기 정보를 DB에 저장하기 위한 MatchProgress 생성
     @Transactional
@@ -56,14 +55,33 @@ public class MatchProgressService {
                 .orElseThrow(() -> new NoSuchElementException("진행 중인 경기 정보가 없습니다."));
     }
 
+    @Transactional(readOnly = true)
+    public Optional<MatchProgress> getCurrentProgressOptional() {
+        return matchProgressRepository.findCurrentProgress();
+    }
 
     //✅ 경기 종료 처리
     @Transactional
-    public void endMatch(){
-        MatchProgress progress = getCurrentProgress();
+    public boolean endMatch(){
+        Optional<MatchProgress> optional = matchProgressRepository.findCurrentProgress();
+
+        if(optional.isEmpty()){
+            return false;
+        }
+
+        MatchProgress progress = optional.get();
         progress.setIsEndOfMatch(true);
         progress.setIsLocked(true);
         matchProgressRepository.save(progress);
+
+        matchProgressRepository.deleteAllInBatch();
+        scoresRepository.deleteAllInBatch();
+        judgesRepository.deleteAllInBatch();
+        judgeAccessRepository.deleteAllInBatch();
+        roundsRepository.deleteAllInBatch();
+        matchesRepository.deleteAllInBatch();
+
+        return true;
     }
 
     //✅ 점수 입력 잠금 (심판 점수 입력 막기)

@@ -1,4 +1,5 @@
 import React, {useEffect, useState, useRef} from "react";
+import { useNavigate } from 'react-router-dom';
 import axios from "axios";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
@@ -37,9 +38,10 @@ const Adminpage: React.FC = () => {
     const [isReconnected, setIsReconnected] = useState(false);
     const initializedOnceRef = useRef(false);
 
-    //✅ 전역으로 쓰이는 하드코딩
+    //✅ 전역으로 쓰이는 코드드
     const baseURL = import.meta.env.VITE_API_BASE_URL;
     const current = matches[currentIndex];
+    const navigate = useNavigate();
 
     //✅ 레드, 블루 총합 구하기
     const redTotal = roundScores.reduce((sum, round) => {
@@ -348,12 +350,15 @@ const Adminpage: React.FC = () => {
     
     //✅ 다음 경기로 전환
     const handleNext = async () => {
-        const confirmNext = window.confirm("⚠️ 다음 경기로 이동하시겠습니까?");
+        const isLastMatch = currentIndex === matches.length -1;
 
-        //🔴 취소 누르면 아래 함수 작동x
-        if(!confirmNext){
+        if(isLastMatch){
+            alert("⚠️ 현재 경기가 마지막 경기입니다.");
             return;
         }
+        
+        const confirmNext = window.confirm("⚠️ 다음 경기로 이동하시겠습니까?");
+        if (!confirmNext) return;
 
         try {
             const currentMatch = matches[currentIndex];
@@ -463,50 +468,79 @@ const Adminpage: React.FC = () => {
         }
     };
 
+    //✅ DB 및 localStorage 초기화 버튼
+    const  handleEnd = async () => {
+        const confirmEnd = window.confirm("⚠️ 정말 경기 데이터를 모두 초기화하시겠습니까?");
+        if(!confirmEnd) return;
 
-    //✅ 로컬스토리지에서 불러오는 중일때
-    if (!allHydrated) {
-        return (
-          <div>
-            <p>⏳ 상태를 불러오는 중입니다...</p>
-          </div>
-        );
-      }
+        try{
+            //🔴 서버에 초기화 요청
+            const response = await axios.post(`${baseURL}/api/progress/end`);
+
+            if(response.status === 200){
+                localStorage.removeItem("match-storage");
+                localStorage.removeItem("qr-storage");
+                localStorage.removeItem("score-storage");
+                alert("✅ 모든 경기 정보가 초기화되었습니다.");
+                navigate("/");
+                window.location.reload();
+            }
+        }catch(error:any){
+            if(error.response?.status === 400){
+                alert("❌ 아직 시작된 경기가 없습니다.");
+            } else {
+                alert("❌ 서버 오류 발생. 관리자에게 문의하세요.");
+            }
+            console.error("❌ 경기 종료 실패:", error);
+        }
+    };
+ 
+
+    const renderFileUploadSection = () => (
+        <>
+            <button onClick={handleModalOpen}>
+                {isFileUploaded ? "📄 파일 수정" : "📥 파일 업로드"}
+            </button>
+
+            {isModalOpen && (
+                <div style={{ border: "1px solid #aaa", padding: 20, marginTop: 20 }}>
+                    <h3>📁엑셀 파일 업로드</h3>
+                    <input type="file" accept=".xlsx, .xls" onChange={handleFileChange}/>
+                    {sheetNames.length > 0 && (
+                        <select onChange={(e) => setSelectedSheet(Number(e.target.value))}>
+                            <option value="">시트를 선택하세요</option>
+                            {sheetNames.map((name, idx) => (
+                                <option key={name} value={idx}>{`${idx + 1}번 시트: ${name}`}</option>
+                            ))}
+                        </select>
+                    )}    
+                    <div>
+                        <button onClick={handleFileUpload}>📤엑셀 업로드</button>
+                        <button onClick={handleModalClose}>❌닫기</button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+
     
     //✅ 엑셀 등록하기 전이라 경기 정보가 없을 때
     if(matches.length === 0){
         return(
             <div>
                 <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
-
-                <button onClick={handleModalOpen}>
-                    {isFileUploaded ? "📄 파일 수정" : "📥 파일 업로드"}
-                </button>
-
-                {isModalOpen && (
-                    <div style={{ border: "1px solid #aaa", padding: 20, marginTop: 20 }}>
-                        <h3>📁엑셀 파일 업로드</h3>
-                        <input type="file" accept=".xlsx, .xls" onChange={handleFileChange}/>
-                        {sheetNames.length > 0 && (
-                            <select onChange={(e) => setSelectedSheet(Number(e.target.value))}>
-                                <option value="">시트를 선택하세요</option>
-                                {sheetNames.map((name, idx) => (
-                                    <option key={name} value={idx}>{`${idx + 1}번 시트: ${name}`}</option>
-                                ))}
-                            </select>
-                        )}    
-                        <div>
-                            <button onClick={handleFileUpload}>📤엑셀 업로드</button>
-                            <button onClick={handleModalClose}>❌닫기</button>
-                        </div>
-                    </div>
-                )}
+                {renderFileUploadSection()}
             </div>
         );
     }
 
     return(
         <div>
+            <div>
+                {isFileUploaded && currentIndex === 0 && (
+                    <span>{renderFileUploadSection()}</span>
+                )}
+            </div>
             <div>
                 <span>{current.matchNumber}경기</span>
                 <span>{current.division}</span>
@@ -558,6 +592,9 @@ const Adminpage: React.FC = () => {
                 handleNext();
             }}>
                 다음 경기👉
+            </button>
+            <button onClick={handleEnd}>
+                경기 종료
             </button>
 
             {showQRButton && !isPasswordSet && (

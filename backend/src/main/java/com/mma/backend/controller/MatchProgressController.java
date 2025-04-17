@@ -39,9 +39,13 @@ public class MatchProgressController {
 
     //✅ 경기 종료 처리
     @PostMapping("/end")
-    public ResponseEntity<Void> endMatch(){
-        matchProgressService.endMatch();
-        return ResponseEntity.ok().build();
+    public ResponseEntity<String> endMatch(){
+        boolean success = matchProgressService.endMatch();
+
+        if(!success){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("❌ 진행 중인 경기 정보가 없습니다.");
+        }
+        return ResponseEntity.ok("✅ 모든 데이터가 초기화되었습니다.");
     }
 
     //✅ 점수 입력 잠금 (심판 점수 입력 막기)
