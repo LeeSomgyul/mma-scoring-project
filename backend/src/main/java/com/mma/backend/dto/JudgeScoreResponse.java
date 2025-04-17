@@ -7,6 +7,7 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class JudgeScoreResponse {
+    private String judgeId;
     private String judgeName;
     private Integer red;
     private Integer blue;

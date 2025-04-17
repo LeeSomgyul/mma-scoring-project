@@ -5,21 +5,16 @@ import { Client } from "@stomp/stompjs";
 import { useSearchParams } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid'; 
 
-interface RoundInfo{
-  id: number;
-  roundNumber: number;
-}
+import { useJudgeStore } from "../stores/useJudgeStore";
+import { useJudgeScoreStore } from "../stores/useJudgeScoreStore";
+import { useJudgeMatchStore } from "../stores/useJudgeMatchStore";
+import { useMatchStore } from "../stores/useMatchStore";
+import {resetJudgeStorage} from "../utils/resetJudgeStorage"
 
-interface MatchInfo {
-  id: number;
-  matchNumber: number;
-  division: string;
-  roundCount: number;
-  redName: string;
-  blueName: string;
-  redGym: string;
-  blueGym: string;
-  rounds: RoundInfo[];
+interface MyScore {
+  red: string;
+  blue: string;
+  submitted: boolean;
 }
 
 //✅ UUID생성 + 저장 함수
@@ -33,32 +28,114 @@ const getOrCreateDeviceId = (): string => {
 };
 
 const JudgePage: React.FC = () => {
-  const [matchInfo, setMatchInfo] = useState<MatchInfo | null>(null);
+  //✅ zustand 상태 연결
+  const {judgeName,setJudgeName,deviceId,setDeviceId,verified,setVerified} = useJudgeStore();
+  const {scores, setScores, submitted, setSubmitted, editing, setEditing, currentRoundIndex, setCurrentRoundIndex} = useJudgeScoreStore();
+  const isHydrated = useJudgeScoreStore((state) => state.isHydrated);
+  const { matchInfo, setMatchInfo } = useJudgeMatchStore();
+  const { matches, setMatches, currentIndex, setCurrentIndex } = useMatchStore();
+  //✅ 일반
   const [stompClient, setStompClient] = useState<Client | null>(null);
-  const [scores, setScores] = useState<{ red: string; blue: string }[]>([]);
-  const [submitted, setSubmitted] = useState<boolean[]>([]);
-  const [editing, setEditing] = useState<boolean[]>([]);
-  const [name, setName] = useState<string>("");
   const [inputPassword, setInputPassword] = useState<string>("");
   const [isVerified, setIsVerified] = useState(false);
   const [searchParams] = useSearchParams();
-  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
-
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [lastFetchedMatchId, setLastFetchedMatchId] = useState<number | null>(null);
+  //✅ 전역 변수
   const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
   
 
+
+  useEffect(() => {
+    if (!matchInfo || !isHydrated || matches.length === 0) return;
+  
+    const index = matches.findIndex((m) => m.id === matchInfo.id);
+    if (index !== -1) {
+      useMatchStore.getState().setCurrentIndex(index);
+      console.log("🔄 currentIndex 재설정:", index);
+    } else {
+      console.warn("⚠️ matchInfo.id에 해당하는 경기 없음");
+    }
+  }, [matchInfo, isHydrated, matches]);
+
+  //✅ localStorage에서 복원 -> 서버에서 복원 
+  useEffect(() => {
+    if(!isVerified || !isHydrated || !matchInfo || !isInitialLoad) return;
+
+    if(lastFetchedMatchId === matchInfo.id) return;
+
+    setLastFetchedMatchId(matchInfo.id);
+
+    //🔴 서버에서 최신 점수 덮어쓰기
+      const deviceId = localStorage.getItem("judgeDeviceId");
+      if(!deviceId) return;
+
+      console.log("📦 score 요청 시 matchId:", matchInfo?.id);
+
+      axios.get(`${baseURL}/api/scores/by-match`, {
+        params: {matchId: matchInfo.id }
+      })
+      .then(response => {
+        const myScores: MyScore[] = response.data.map((round: any) => {
+          const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
+
+          return{
+            red: myScore?.red?.toString() ?? "",
+            blue: myScore?.blue?.toString() ?? "",
+            submitted: myScore?.submitted ?? false,
+          };
+        });
+
+        const scores = myScores.map((s) => ({ red: s.red, blue: s.blue }));
+        const submitted = myScores.map((s) => s.submitted);
+        const editing = submitted.map((s, i) => {
+          if (i === 0) return !submitted[0];
+          return submitted[i - 1] && !s;
+        });
+
+        useJudgeScoreStore.setState({
+          scores,
+          submitted,
+          editing,
+          currentRoundIndex: 0,
+        });
+
+        setSubmitted(submitted);
+        setEditing(editing);
+        setCurrentRoundIndex(0);
+
+        console.log("✅ 서버 점수 기반으로 상태 복원 완료");
+      })
+      .catch(err => {
+        console.error("❌ 서버 점수 복원 실패:", err);
+      })
+      .finally(() => {
+        setIsInitialLoad(false);
+      });
+  },[isVerified, isHydrated, matchInfo]);
+
+
+  //✅ 심판이 새로고침하거나 나갔다가 돌아왔을 떄, 다시 로그인하지 않아도 되는 것. 
+  useEffect(() => {
+    const restoredDeviceId = localStorage.getItem("judgeDeviceId");
+    const restoredName = useJudgeStore.getState().judgeName;
+    const wasVerified = useJudgeStore.getState().verified;
+
+    if (restoredDeviceId && restoredName && wasVerified) {
+      setIsVerified(true);
+      console.log("✅ 자동 인증 복원됨:", restoredName);
+    }
+  },[]);
+
   // ✅ WebSocket 연결
   useEffect(() => {
     const socket = new SockJS("/ws");
-
     const client = new Client({
       webSocketFactory: () => socket,
       reconnectDelay: 5000,
 
       onConnect: () => {
-        console.log("✅ STOMP 연결 성공");
-
         //🔴 기존 경기 정보 연결
         client.subscribe("/topic/messages", (message) => {
           console.log("📩 서버로부터 메시지:", message.body);
@@ -66,44 +143,54 @@ const JudgePage: React.FC = () => {
 
         //🔴 다음 경기 정보 받기 및 초기화
         client.subscribe("/topic/next-match", (message) => {
-
           const newMatch = JSON.parse(message.body);
-
-          //🔥🔥 테스트 로그(나중에 삭제 - if문까지)
-          console.log("🔥 새 경기 정보:", JSON.stringify(newMatch, null, 2)); // 구조화된 출력
-          console.log("🔥 rounds 배열:", newMatch.rounds);
           if (!newMatch.rounds || newMatch.rounds.length === 0) {
             console.error("❌ rounds 배열이 비어 있거나 누락됨:", newMatch);
+            return;
           }
 
-          setMatchInfo(newMatch);
+          //🔴 본부에서 '다음경기'를 눌렀을 때만 초기화
+          if (matchInfo?.id !== newMatch.id) {
+            setMatchInfo(newMatch);
 
-          setScores(Array.from({length: newMatch.roundCount}, () => ({ red: "", blue: "" })));
-          setSubmitted(Array.from({ length: newMatch.roundCount }, () => false));
-          setEditing(Array.from({ length: newMatch.roundCount }, (_, i) => i === 0));
-          setCurrentRoundIndex(0);
+            useJudgeScoreStore.setState({
+              scores: Array.from({ length: newMatch.roundCount }, () => ({ red: "", blue: "" })),
+              submitted: Array.from({ length: newMatch.roundCount }, () => false),
+              editing: Array.from({ length: newMatch.roundCount }, (_, i) => i === 0),
+              currentRoundIndex: 0,
+            });
+          }
         });
 
+        if(!isHydrated) return;
 
         //🔴 최초 연결 시 초기 경기 정보 가져오기
         axios
           .get("/api/matches")
           .then(async(res) => {
-            const firstMatch = res.data[0];
-            const roundsResponse = await axios.get(`/api/rounds/match/${firstMatch.id}`);
+            const matches = res.data;
+
+            const currentIndex = useMatchStore.getState().currentIndex;
+            const currentMatch = matches[currentIndex];
+
+            const roundsResponse = await axios.get(`/api/rounds/match/${currentMatch.id}`);
             const rounds = roundsResponse.data;
 
-            const fullMatchInfo = {
-              ...firstMatch,
-              rounds: rounds,
-            };
+            useMatchStore.setState({matches});
 
-            setMatchInfo(fullMatchInfo);
-            setScores(Array.from({length: firstMatch.roundCount}, () => ({ red: "", blue: "" }))
-          );
-          setSubmitted(Array.from({ length: firstMatch.roundCount }, () => false));
-          setEditing(Array.from({ length: firstMatch.roundCount }, (_, i) => i === 0));
-          setCurrentRoundIndex(0)
+            setMatchInfo({
+              ...currentMatch,
+              rounds,
+            });
+
+            const existingScores = useJudgeScoreStore.getState().scores;
+
+            if(existingScores.length === 0){
+              setScores(Array.from({ length: currentMatch.roundCount }, () => ({ red: "", blue: "" })));
+              setSubmitted(Array.from({ length: currentMatch.roundCount }, () => false));
+              setEditing(Array.from({ length: currentMatch.roundCount }, (_, i) => i === 0));
+              setCurrentRoundIndex(0);
+            }
           })
           .catch((err) => console.error("❌ match 정보 가져오기 실패:", err));
       },
@@ -127,7 +214,7 @@ const JudgePage: React.FC = () => {
     return () => {
       client.deactivate();
     };
-  }, []);
+  }, [isHydrated]);
 
   //✅ 심판이 라운드 순서대로 열 수 있도록 input제어
   useEffect(() => {
@@ -148,7 +235,7 @@ const JudgePage: React.FC = () => {
   //✅ 비밀번호 검증 버튼
   const handleVerify = async() => {
     
-    if(!name || !inputPassword){
+    if(!judgeName || !inputPassword){
       alert("이름과 비밀번호를 모두 입력해주세요.");
       return;
     }
@@ -177,7 +264,7 @@ const JudgePage: React.FC = () => {
         try{
           judgeResponse = await axios.post(`${baseURL}/api/judges`, null, {
             params: {
-              name,
+              name: judgeName,
               deviceId,
               matchId,
             },
@@ -195,7 +282,10 @@ const JudgePage: React.FC = () => {
         }
 
         alert("✅ 인증 성공!");
+
         setIsVerified(true);
+        setVerified(true);//🔴 zustand에도 반영
+        setDeviceId(deviceId);
       }else{
         alert("❌ 비밀번호가 일치하지 않습니다.");
       }
@@ -222,9 +312,17 @@ const JudgePage: React.FC = () => {
       return;
     }
 
-    const newScores = [...scores];
-    newScores[roundIndex][color] = value;
+    const newScores = scores.map((score, i) => 
+      i === roundIndex ? {...score, [color]: value}: score
+    );
+
     setScores(newScores);
+    useJudgeScoreStore.setState({ 
+      scores: newScores,
+      submitted: [...submitted],
+      editing: [...editing],
+      currentRoundIndex,
+    });
   };
 
   // ✅ 점수 전송
@@ -237,34 +335,23 @@ const JudgePage: React.FC = () => {
     }
 
     const deviceId = localStorage.getItem("judgeDeviceId");
-
     if (!deviceId) {
       alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
       return;
     }
 
-    //🔥🔥🔥아래 if2개까지 삭제 가능(디버그용)
-    console.log("🔍 현재 matchInfo (전송 전):", JSON.stringify(matchInfo, null, 2));
-    console.log("🔍 현재 roundIndex:", roundIndex);
     if (!matchInfo || !matchInfo.rounds || !matchInfo.rounds[roundIndex]) {
-      console.error("❌ 경기 정보 또는 rounds 데이터 누락:", matchInfo);
       alert("❌ 경기 정보가 올바르지 않습니다. 새로고침 후 다시 시도해주세요.");
       return;
     }
-
+  
     const roundId = matchInfo.rounds[roundIndex].id;
-
-    //🔥🔥🔥 디버그 용으로 삭제 가능
     if (!roundId) {
-      console.error("❌ roundId가 undefined! 아래 matchInfo.rounds 로그 확인:", {
-        roundIndex,
-        rounds: matchInfo?.rounds,
-        matchInfo,
-      });
       alert("❌ 라운드 정보가 누락되었습니다. 관리자에게 문의하세요.");
       return;
     }
 
+    
     const result = {
       roundId,
       redScore: parseInt(red),
@@ -272,28 +359,32 @@ const JudgePage: React.FC = () => {
       judgeId: deviceId,
     };
 
-    console.log("📤 보낼 점수 메시지:", result);
-
     if (stompClient && stompClient.connected) {
       stompClient.publish({
         destination: "/app/send",
         body: JSON.stringify(result),
       });
 
-
+      const newScores = scores.map((score, i) => ({...score}));
       const newSubmitted = [...submitted];
-      newSubmitted[roundIndex] = true;
-      setSubmitted(newSubmitted);
-
       const newEditing = [...editing];
+
+      newSubmitted[roundIndex] = true;
       newEditing[roundIndex] = false;
+
+      //🔴 zustand에 저장
+      useJudgeScoreStore.setState({
+        scores: newScores,
+        submitted: newSubmitted,
+        editing: newEditing,
+        currentRoundIndex,
+      });
+
+      setScores(newScores);
+      setSubmitted(newSubmitted);
       setEditing(newEditing);
 
-      if (submitted[roundIndex]) {
-        alert("수정 완료!");
-      } else {
-        alert("전송 완료!");
-      }
+      alert(submitted[roundIndex] ? "수정 완료!" : "전송 완료!");
     } else {
       alert("❌ 서버와 연결되지 않았습니다.");
     }
@@ -301,8 +392,20 @@ const JudgePage: React.FC = () => {
 
   // ✅ 수정 버튼
   const handleEdit = (roundIndex: number) => {
+    const newScores = scores.map((score) => ({...score}));
+    const newSubmitted = [...submitted];
     const newEditing = [...editing];
+
     newEditing[roundIndex] = true;
+
+    //🔴 zustand에도 저장
+    useJudgeScoreStore.setState({
+      scores: newScores,
+      submitted: newSubmitted,
+      editing: newEditing,
+      currentRoundIndex,
+    });
+
     setEditing(newEditing);
 
     const deviceId = localStorage.getItem("judgeDeviceId");
@@ -320,8 +423,6 @@ const JudgePage: React.FC = () => {
         destination: "/app/modify",
         body: JSON.stringify(modifyMessage)
       });
-  
-      console.log("✏️ 수정 요청 전송:", modifyMessage);
     }
   };
 
@@ -333,8 +434,8 @@ const JudgePage: React.FC = () => {
           <input
             type="text"
             placeholder="이름을 입력하세요."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={judgeName ?? ""}
+            onChange={(e) => setJudgeName(e.target.value)}
           />
           <input
             type="text"
@@ -382,6 +483,10 @@ const JudgePage: React.FC = () => {
       ) : (
         <div>⏳ 경기 정보를 불러오는 중입니다...</div>
       )}
+      <button onClick={() => {
+            resetJudgeStorage();
+            window.location.reload();
+            }}>⚠️ judge 데이터 초기화</button>
     </div>
   );
 };

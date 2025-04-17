@@ -41,6 +41,11 @@ export const useMatchStore = create<MatchSotreState>()(
         onRehydrateStorage: () => (state) => {
           state?.setHydrated(true);
         },
+        partialize: (state) => ({
+          matches: state.matches,
+          currentIndex: state.currentIndex,
+          isHydrated: state.isHydrated,
+        }),
       }
     )
   );

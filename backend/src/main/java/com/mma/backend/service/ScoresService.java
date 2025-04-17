@@ -140,16 +140,17 @@ public class ScoresService {
             //🔴 점수 제출된 심판 이름
             Map<String, Scores> submittedMap = submittedScores.stream()
                     .collect(Collectors.toMap(
-                            s -> s.getJudges().getName(),
+                            s -> s.getJudges().getDevicedId(),
                             s -> s
                     ));
 
             //🔴 전체 심판을 기준으로 모든 사람들 돌기
             List<JudgeScoreResponse> judgeScores = allJudges.stream().map(judge -> {
-                Scores score = submittedMap.get(judge.getName());
+                Scores score = submittedMap.get(judge.getDevicedId());
                 //🔴 점수 제출한 심판 정보
                 if(score != null) {
                     return new JudgeScoreResponse(
+                      judge.getDevicedId(),
                       judge.getName(),
                       score.getRedScore(),
                       score.getBlueScore(),
@@ -158,6 +159,7 @@ public class ScoresService {
                 }else{
                     //🔴 점수 미제출 심판 정보
                     return new JudgeScoreResponse(
+                            judge.getDevicedId(),
                             judge.getName(),
                             null,
                             null,

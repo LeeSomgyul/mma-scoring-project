@@ -14,11 +14,12 @@ const HomePage: React.FC = () => {
             <div>
                 <button onClick={() => navigate("/admin")}>👨‍💼 본부석 입장</button>
             </div>
+            
             <button onClick={() => {
             resetAllStores();
             window.location.reload();
             }}>
-            ⚠️ 로컬 상태 초기화
+            ⚠️ admin 상태 초기화
             </button>
         </div>
     );

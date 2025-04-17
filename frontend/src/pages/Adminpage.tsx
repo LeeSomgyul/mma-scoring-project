@@ -348,6 +348,13 @@ const Adminpage: React.FC = () => {
     
     //✅ 다음 경기로 전환
     const handleNext = async () => {
+        const confirmNext = window.confirm("⚠️ 다음 경기로 이동하시겠습니까?");
+
+        //🔴 취소 누르면 아래 함수 작동x
+        if(!confirmNext){
+            return;
+        }
+
         try {
             const currentMatch = matches[currentIndex];
             const response = await axios.post(`${baseURL}/api/progress/next`, null, {
@@ -355,7 +362,6 @@ const Adminpage: React.FC = () => {
             });
         
             if (response.status === 200) {
-                alert("✅ 다음 경기로 이동합니다.");
                 const nextMatchId = response.data?.nextMatchId;
       
             if (nextMatchId) {

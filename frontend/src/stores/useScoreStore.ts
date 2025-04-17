@@ -1,3 +1,5 @@
+//🔥 [본부용 점수 관련 상태]
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 

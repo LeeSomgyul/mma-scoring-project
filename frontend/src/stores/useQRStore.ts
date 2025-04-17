@@ -53,6 +53,14 @@ export const useQRStore = create<QRStoreState>()(
       onRehydrateStorage: () => (state) => {
         state?.setHydrated(true);
       },
+      partialize: (state) => ({
+        showQRButton: state.showQRButton,
+        qrGenerated: state.qrGenerated,
+        isPasswordSet: state.isPasswordSet,
+        accessCode: state.accessCode,
+        isFileUploaded: state.isFileUploaded,
+        isHydrated: state.isHydrated,
+      }),
     }
   )
 );
