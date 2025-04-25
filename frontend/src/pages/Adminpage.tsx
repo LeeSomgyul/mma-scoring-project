@@ -38,6 +38,7 @@ const Adminpage: React.FC = () => {
     const [isReconnected, setIsReconnected] = useState(false);
     const initializedOnceRef = useRef(false);
 
+
     //✅ 전역으로 쓰이는 코드드
     const baseURL = import.meta.env.VITE_API_BASE_URL;
     const current = matches[currentIndex];
@@ -93,7 +94,7 @@ const Adminpage: React.FC = () => {
         let stompClient: Client;
 
         const runWebSocket = () => {
-            const socket = new SockJS("/ws");
+            const socket = new SockJS(`${baseURL}/ws`);
             stompClient = new Client({
                 webSocketFactory: () => socket,
                 reconnectDelay: 5000,
@@ -302,6 +303,7 @@ const Adminpage: React.FC = () => {
 
     //✅ 액셀 업로드 버튼
     const handleFileUpload = async () => {
+
         if (!file) {
             alert("엑셀 파일을 선택해주세요!");
             return;
@@ -315,10 +317,17 @@ const Adminpage: React.FC = () => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("sheet", String(selectedSheet + 1));
+
+        //🔥삭제가능
+        console.log("📄 file:", file);
+        console.log("📄 selectedSheet:", selectedSheet);
+        console.log("📄 formData 전체:", [...formData.entries()]); 
+        
     
         try {
-            const response = await axios.post(`${baseURL}/api/matches/upload`, formData, {
+            await axios.post(`${baseURL}/api/matches/upload`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
+                withCredentials: true,
             });
 
             setIsFileUploaded(true);
@@ -328,8 +337,9 @@ const Adminpage: React.FC = () => {
             setIsModalOpen(false);
 
             fetchMatches();
-        }catch(error){
+        }catch(error:any){
             console.error("❌ 업로드 실패:", error);
+            console.error("📥 서버 응답:", error.response?.data);
         }
     };
 
@@ -517,37 +527,34 @@ const Adminpage: React.FC = () => {
                     <div>
                         <button onClick={handleFileUpload}>📤엑셀 업로드</button>
                         <button onClick={handleModalClose}>❌닫기</button>
-                    </div>
+                        </div>
                 </div>
             )}
         </>
     );
-
-    
     //✅ 엑셀 등록하기 전이라 경기 정보가 없을 때
     if(matches.length === 0){
         return(
             <div>
                 <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
                 {renderFileUploadSection()}
-            </div>
-        );
-    }
-
-    return(
-        <div>
-            <div>
-                {isFileUploaded && currentIndex === 0 && (
-                    <span>{renderFileUploadSection()}</span>
-                )}
-            </div>
-            <div>
-                <span>{current.matchNumber}경기</span>
-                <span>{current.division}</span>
-            </div>
-            <div>
-                {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
-            </div>
+                </div>
+                );
+            }
+            return(
+                <div>
+                    <div>
+                        {isFileUploaded && currentIndex === 0 && (
+                            <span>{renderFileUploadSection()}</span>
+                        )}
+                    </div>
+                    <div>
+                        <span>{current.matchNumber}경기</span>
+                        <span>{current.division}</span>
+                    </div>
+                    <div>
+                        {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
+                        </div>
             {roundScores.map((round, index) => {
                 const redSum = round.judges
                 .filter(j => j.submitted)
@@ -575,7 +582,7 @@ const Adminpage: React.FC = () => {
                             ) : (
                                     <div>🙋 심판 미입장</div>
                             )}
-                        </div>
+                             </div>
                     </div>
                 );
             })}
@@ -599,10 +606,10 @@ const Adminpage: React.FC = () => {
 
             {showQRButton && !isPasswordSet && (
                 <div>
-                    <button onClick={() => setShowPasswordModal(true)}>📱 심판용 QR 코드 생성</button>
-                </div>
-            )}
-
+                    <button onClick={() => setShowPasswordModal(true)}>📱 심판용 QR 코드 생성</button>   
+                    </div>
+            )} 
+            
             {showPasswordModal && (
                 <div>
                     <h3>🛡️ 심판 비밀번호 설정</h3>
@@ -630,14 +637,14 @@ const Adminpage: React.FC = () => {
                         maxLength={4}
                     />
                     <button onClick={handleSavePassword}>비밀번호 등록 및 QR 생성</button>
-                </div>
+                    </div>
             )}
 
             {qrGenerated && (
                 <div>
-                    <QRCode value={`${window.location.origin}/judge?accessCode=${accessCode}`} size={180} />
-                    <div>📷 심판이 QR을 스캔하면 입장할 수 있어요</div>
-                    <button onClick={() => setQrGenerated(false)}>❌ QR 코드 닫기</button>
+                <QRCode value={`${window.location.origin}/judge?accessCode=${accessCode}`} size={180} />
+                <div>📷 심판이 QR을 스캔하면 입장할 수 있어요</div>
+                <button onClick={() => setQrGenerated(false)}>❌ QR 코드 닫기</button>
                 </div>
             )}
 
@@ -646,7 +653,7 @@ const Adminpage: React.FC = () => {
                 🔁 QR 코드 다시 보기
             </button>
             )}
-        </div>
+            </div>
     );
 };
 

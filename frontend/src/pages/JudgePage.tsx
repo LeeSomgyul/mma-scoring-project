@@ -459,15 +459,15 @@ const JudgePage: React.FC = () => {
             maxLength={4}
           />
           <button onClick={handleVerify}>입장하기</button>
-        </div>
+          </div>
       ) : matchInfo ? (
         <>
           <div>{matchInfo.matchNumber}경기 {matchInfo.division}</div>
           <div>
             <span>{matchInfo.redName}({matchInfo.redGym})</span>
             <span>{matchInfo.blueName}({matchInfo.blueGym})</span>
-          </div>
-          <div>
+            </div>
+            <div>
             {Array.from({ length: matchInfo.roundCount }, (_, i) => (
               <div key={i}>
                 <span>{i + 1}라운드</span>
@@ -490,18 +490,18 @@ const JudgePage: React.FC = () => {
                     {submitted[i] ? "재전송" : "전송"}
                   </button>
                 )}
-              </div>
+                </div>
             ))}
           </div>
           <button onClick={handleOut}>
             경기종료
           </button>
         </>
-      ) : (
-        <div>⏳ 경기 정보를 불러오는 중입니다...</div>
-      )}
-    </div>
-  );
+        ) : (
+          <div>⏳ 경기 정보를 불러오는 중입니다...</div>
+        )}
+      </div>
+    );
 };
 
 export default JudgePage;

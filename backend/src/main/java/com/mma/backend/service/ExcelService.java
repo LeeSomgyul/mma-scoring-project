@@ -1,10 +1,7 @@
 package com.mma.backend.service;
 
 import com.mma.backend.entity.Matches;
-import com.mma.backend.repository.MatchProgressRepository;
-import com.mma.backend.repository.MatchesRepository;
-import com.mma.backend.repository.RoundsRepository;
-import com.mma.backend.repository.ScoresRepository;
+import com.mma.backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -22,11 +19,13 @@ public class ExcelService {
     private final MatchProgressRepository matchProgressRepository;
     private final ScoresRepository scoresRepository;
     private final RoundsRepository roundsRepository;
+    private final JudgesRepository judgesRepository;
 
     //✅ 엑셀 파일 받아오는 기능
     public List<String> saveMatchesFromExcel(MultipartFile file, int userSheetNumber) throws Exception {
 
         //🔴 기존 엑셀 데이터 삭제
+        judgesRepository.deleteAll();
         matchProgressRepository.deleteAll();
         scoresRepository.deleteAll();
         roundsRepository.deleteAll();
