@@ -508,8 +508,11 @@ const Adminpage: React.FC = () => {
 
     const renderFileUploadSection = () => (
         <>
-            <button onClick={handleModalOpen}>
-                {isFileUploaded ? "📄 파일 수정" : "📥 파일 업로드"}
+            <button
+                onClick={handleModalOpen}
+                className="bg-white text-black px-[65px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
+            >
+                {isFileUploaded ? "파일 수정" : "파일 업로드"}
             </button>
 
             {isModalOpen && (
@@ -535,9 +538,30 @@ const Adminpage: React.FC = () => {
     //✅ 엑셀 등록하기 전이라 경기 정보가 없을 때
     if(matches.length === 0){
         return(
-            <div>
-                <div>📂 아직 엑셀 파일을 불러오지 않았습니다. 경기 정보를 업로드해주세요!</div>
-                {renderFileUploadSection()}
+            <div 
+                className="relative flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-center bg-no-repeat bg-cover touch-none"
+                style={{backgroundImage: `url('/images/bg_main.jpg')`}}
+            >
+                {/* 로고 */}
+                <div className='absolute top-7 left-6'>
+                    <img
+                        src='/images/sub_logo.svg'
+                        alt='메인 로고'
+                        className='w-40 h-auto'
+                    />
+                </div>
+
+                {/* 중앙 글자 */}
+                <div
+                    className="px-4 mb-6 text-[25px] font-sans font-bold text-center text-white"
+                    style={{
+                        textShadow: "2px 2px 4px rgba(0, 0, 0, 0.5)"
+                    }}    
+                >
+                    아직 엑셀 파일을 불러오지 않았습니다.<br/>
+                    경기 정보를 업로드해주세요!
+                </div>
+                    {renderFileUploadSection()}
                 </div>
                 );
             }

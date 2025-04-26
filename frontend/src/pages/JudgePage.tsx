@@ -17,6 +17,8 @@ interface MyScore {
   submitted: boolean;
 }
 
+
+
 //✅ UUID생성 + 저장 함수
 const getOrCreateDeviceId = (): string => {
   let deviceId = localStorage.getItem("judgeDeviceId");
@@ -45,8 +47,19 @@ const JudgePage: React.FC = () => {
   const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
   const navigate = useNavigate();
-  
 
+  //🔥테스트용(나중에 삭제 가능)
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const log = (msg: string) => {
+    console.log(msg); // 콘솔도 남기고
+    setDebugLog(prev => [...prev.slice(-10), msg]); // 최근 10개까지 유지
+  };
+
+  //✅ devicedID가 judge페이지 들어오자마자 저장되도록
+  useEffect(() => {
+    const id = getOrCreateDeviceId();
+    log("✅ 초기 deviceId 확보:" + id);
+  },[]);
 
   useEffect(() => {
     if (!matchInfo || !isHydrated || matches.length === 0) return;
@@ -69,7 +82,7 @@ const JudgePage: React.FC = () => {
     setLastFetchedMatchId(matchInfo.id);
 
     //🔴 서버에서 최신 점수 덮어쓰기
-      const deviceId = localStorage.getItem("judgeDeviceId");
+      const deviceId = getOrCreateDeviceId();
       if(!deviceId) return;
 
       console.log("📦 score 요청 시 matchId:", matchInfo?.id);
@@ -116,9 +129,40 @@ const JudgePage: React.FC = () => {
       });
   },[isVerified, isHydrated, matchInfo]);
 
+  //✅ 해당 브라우저 페이지가 처음 QR로 입장한건지 감지하기 위한 코드
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const matchId = urlParams.get("matchId");
+    const judgeId = urlParams.get("judgeId");
+  
+    if (matchId && judgeId) {
+      sessionStorage.setItem("enteredViaQR", "true");
+      window.location.href = window.location.href; 
+    }
+  }, []);
+
 
   //✅ 심판이 새로고침하거나 나갔다가 돌아왔을 떄, 다시 로그인하지 않아도 되는 것. 
   useEffect(() => {
+    //🔴matchId 비교해서 이전 경기의 로컬 남아있음 초기화.(이유: 크롬에서 삭제가 잘 안됨.)
+    const saved = localStorage.getItem("judge-score-storage");
+    const enteredViaQR = sessionStorage.getItem("enteredViaQR");
+
+    if (saved && matchInfo && enteredViaQR === "true") {
+      const parsed = JSON.parse(saved);
+  
+      if (
+        parsed.matchId !== matchInfo.id ||
+        parsed.matchNumber !== matchInfo.matchNumber ||
+        parsed.roundCount !== matchInfo.roundCount
+      ) {
+        localStorage.removeItem("judge-score-storage");
+        sessionStorage.removeItem("enteredViaQR");
+        window.location.reload();
+      }
+    }
+
+    //🔴 심판이 새로고침 및 나갔다와도 데이터 안날라가도록
     const restoredDeviceId = localStorage.getItem("judgeDeviceId");
     const restoredName = useJudgeStore.getState().judgeName;
     const wasVerified = useJudgeStore.getState().verified;
@@ -127,7 +171,7 @@ const JudgePage: React.FC = () => {
       setIsVerified(true);
       console.log("✅ 자동 인증 복원됨:", restoredName);
     }
-  },[]);
+  },[matchInfo]);
 
   // ✅ WebSocket 연결
   useEffect(() => {
@@ -335,7 +379,7 @@ const JudgePage: React.FC = () => {
       return;
     }
 
-    const deviceId = localStorage.getItem("judgeDeviceId");
+    const deviceId = getOrCreateDeviceId();
     if (!deviceId) {
       alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
       return;
@@ -409,7 +453,7 @@ const JudgePage: React.FC = () => {
 
     setEditing(newEditing);
 
-    const deviceId = localStorage.getItem("judgeDeviceId");
+    const deviceId = getOrCreateDeviceId();
     const roundId = matchInfo?.rounds?.[roundIndex]?.id;
 
     if(stompClient && stompClient.connected && deviceId && roundId){
@@ -500,6 +544,14 @@ const JudgePage: React.FC = () => {
         ) : (
           <div>⏳ 경기 정보를 불러오는 중입니다...</div>
         )}
+
+      {/*🔥테스트용 로그보기(나중에 삭제 가능) */}
+      <div style={{ background: '#f0f0f0', padding: '10px', fontSize: '12px' }}>
+        <strong>📋 DEBUG LOG</strong>
+        <ul>
+          {debugLog.map((line, index) => <li key={index}>{line}</li>)}
+        </ul>
+      </div>
       </div>
     );
 };
