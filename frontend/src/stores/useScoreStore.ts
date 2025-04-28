@@ -9,6 +9,7 @@ export interface JudgeScore {
     red: number | null;
     blue: number | null;
     submitted: boolean;
+    isConnected: boolean;
 }
   
 // ✅ 라운드별 점수 구조

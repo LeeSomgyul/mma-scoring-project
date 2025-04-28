@@ -20,7 +20,7 @@ public class Judges {
     private String name;
 
     @Column(name = "device_id", unique = true, nullable = false)
-    private String devicedId;
+    private String deviceId;
 
     @Column(name = "is_connected")
     private boolean isConnected = false;

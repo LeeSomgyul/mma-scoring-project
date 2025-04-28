@@ -43,7 +43,7 @@ public class WebSocketController {
 
             String judgeDeviceId = scoreInfo.get("judgeId").toString();
 
-            Judges judge = judgesRepository.findByDevicedId(judgeDeviceId)
+            Judges judge = judgesRepository.findByDeviceId(judgeDeviceId)
                     .orElseThrow(() -> new IllegalArgumentException("해당 judge를 찾을 수 없습니다."));
 
             int redScore = scoreInfo.containsKey("redScore") ? Integer.parseInt(scoreInfo.get("redScore").toString()) : 0;
@@ -81,7 +81,7 @@ public class WebSocketController {
             String judgeDeviceId = data.get("judgeId").toString();
             Long roundId = Long.parseLong(data.get("roundId").toString());
 
-            Judges judge = judgesRepository.findByDevicedId(judgeDeviceId)
+            Judges judge = judgesRepository.findByDeviceId(judgeDeviceId)
                     .orElseThrow(() -> new IllegalArgumentException("해당 심판 없음"));
 
             //🔴 제출 상태 false로 바꾸기

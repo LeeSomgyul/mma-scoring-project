@@ -21,7 +21,7 @@ public class JudgesService {
 
     //✅ 심판 입장 시 정보 등록하는 기능
     public Judges registerJudge(String name, String deviceId) {
-        Optional<Judges> existingJudge = judgesRepository.findByDevicedId(deviceId);
+        Optional<Judges> existingJudge = judgesRepository.findByDeviceId(deviceId);
 
         Judges judge;
         if(existingJudge.isPresent()) {
@@ -30,7 +30,7 @@ public class JudgesService {
         }else{
             judge = Judges.builder()
                     .name(name)
-                    .devicedId(deviceId)
+                    .deviceId(deviceId)
                     .isConnected(true)
                     .build();
         }
@@ -59,8 +59,8 @@ public class JudgesService {
             String uuid = UUID.randomUUID().toString();
 
             Judges judges = Judges.builder()
-                    .devicedId(uuid)
-                    .name("")//🔥🔥🔥나중에 입장 시 입력하도록
+                    .deviceId(uuid)
+                    .name("")
                     .isConnected(false)
                     .build();
 

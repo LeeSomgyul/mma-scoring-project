@@ -31,7 +31,7 @@ public class ScoresService {
     public Optional<Map<String, Object>> saveScore(Long roundId, String judgeDeviceId, int redScore, int blueScore) {
         Rounds round = roundsRepository.findById(roundId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 라운드를 찾을 수 없습니다."));
-        Judges judge = judgesRepository.findByDevicedId(judgeDeviceId)
+        Judges judge = judgesRepository.findByDeviceId(judgeDeviceId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 심판 기기를 찾을 수 없습니다."));
 
         //🔴 심판이 점수 수정 했을 시(점수가 이미 들어와 있는지 확인)
@@ -140,17 +140,17 @@ public class ScoresService {
             //🔴 점수 제출된 심판 이름
             Map<String, Scores> submittedMap = submittedScores.stream()
                     .collect(Collectors.toMap(
-                            s -> s.getJudges().getDevicedId(),
+                            s -> s.getJudges().getDeviceId(),
                             s -> s
                     ));
 
             //🔴 전체 심판을 기준으로 모든 사람들 돌기
             List<JudgeScoreResponse> judgeScores = allJudges.stream().map(judge -> {
-                Scores score = submittedMap.get(judge.getDevicedId());
+                Scores score = submittedMap.get(judge.getDeviceId());
                 //🔴 점수 제출한 심판 정보
                 if(score != null) {
                     return new JudgeScoreResponse(
-                      judge.getDevicedId(),
+                      judge.getDeviceId(),
                       judge.getName(),
                       score.getRedScore(),
                       score.getBlueScore(),
@@ -159,7 +159,7 @@ public class ScoresService {
                 }else{
                     //🔴 점수 미제출 심판 정보
                     return new JudgeScoreResponse(
-                            judge.getDevicedId(),
+                            judge.getDeviceId(),
                             judge.getName(),
                             null,
                             null,

@@ -9,9 +9,10 @@ import java.util.Optional;
 
 @Repository
 public interface JudgesRepository extends JpaRepository<Judges, Long> {
-    Optional<Judges> findByDevicedId(String deviceId);
+    Optional<Judges> findByDeviceId(String deviceId);
     int countByIsConnectedTrue();
     List<Judges> findByMatch_Id(Long matchId);
     List<Judges> findByIsConnectedTrueAndMatch_Id(Long matchId);
     List<Judges> findByIsConnectedTrue();
+    Optional<Judges> findByDeviceIdAndMatch_Id(String deviceId, Long matchId);
 }

@@ -5,6 +5,7 @@ import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 import * as XLSX from "xlsx";
 import QRCode from "react-qr-code";
+import { motion, AnimatePresence } from "framer-motion";
 
 //✅ zustand store import
 import { useMatchStore } from "../stores/useMatchStore";
@@ -12,6 +13,9 @@ import { useScoreStore } from "../stores/useScoreStore";
 import { useQRStore } from "../stores/useQRStore";
 import type { RoundScore, JudgeScore } from "../stores/useScoreStore";
 import type { Match } from "../stores/useMatchStore";
+
+//✅ 아이콘
+import { ChevronDown } from "lucide-react";
 
 
 const Adminpage: React.FC = () => {
@@ -35,8 +39,11 @@ const Adminpage: React.FC = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [password, setPassword] = useState<string>("");
     const [judgeCount, setJudgeCount] = useState<number | null>(null);
+    const [judgeName, setJudgeName] = useState<string[]>([]);
+    const [judgeQRList, setJudgeQRList] = useState<{ name: string; deviceId: string }[]>([]);
     const [isReconnected, setIsReconnected] = useState(false);
     const initializedOnceRef = useRef(false);
+
 
 
     //✅ 전역으로 쓰이는 코드드
@@ -58,13 +65,6 @@ const Adminpage: React.FC = () => {
         const blueSum = round.judges.reduce((b, judge) => b + (judge.blue ?? 0), 0);
         return sum + blueSum;
     }, 0);
-
-    useEffect(() => {
-        if (qrGenerated && accessCode) {
-          const qrUrl = `${window.location.origin}/judge?accessCode=${accessCode}`;
-          console.log("✅ QR 코드에 들어갈 URL:", qrUrl);
-        }
-      }, [qrGenerated, accessCode]);
 
 
     //✅ 네트워크 끊김 또는 심판 데이터 최신화 작업
@@ -118,7 +118,7 @@ const Adminpage: React.FC = () => {
                                         if (round.roundId !== roundId) return round;
                                         const updatedJudges = round.judges.map(j =>
                                             j.judgeName.trim() === judgeName
-                                                ? { ...j, red: null, blue: null, submitted: false }
+                                                ? { ...j, red: null, blue: null, submitted: false, isConnected: j.isConnected}
                                                 : j
                                         );
                                     return { ...round, judges: updatedJudges };
@@ -139,7 +139,8 @@ const Adminpage: React.FC = () => {
                                                 judgeName,
                                                 red: null,
                                                 blue: null,
-                                                submitted: false
+                                                submitted: false,
+                                                isConnected: true
                                             }]
                                         };
                                     })
@@ -157,8 +158,8 @@ const Adminpage: React.FC = () => {
                                         const updatedJudges = round.judges.map(j => {
                                             const found = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
                                             return found
-                                            ? { ...j, submitted: true, red: found.red, blue: found.blue }
-                                            : j;
+                                            ? { ...j, submitted: true, red: found.red, blue: found.blue, isConnected: j.isConnected }
+                                            : {...j, isConnected: j.isConnected};
                                         });
                                         return { ...round, judges: updatedJudges };
                                     })
@@ -176,8 +177,8 @@ const Adminpage: React.FC = () => {
                                         const updatedJudges = round.judges.map(j => {
                                             const match = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
                                             return match
-                                            ? { ...j, submitted: true, red: match.red, blue: match.blue }
-                                            : j;
+                                            ? { ...j, submitted: true, red: match.red, blue: match.blue, isConnected: j.isConnected }
+                                            : { ...j, isConnected: j.isConnected };
                                         });
                                         return { ...round, judges: updatedJudges };
                                     })
@@ -216,30 +217,26 @@ const Adminpage: React.FC = () => {
         axios.get(`${baseURL}/api/judges/current`, {
             params: {matchId: currentMatchId}
         })
-            .then(response => {
-                const judgeList = response.data;
-                console.log("📁 WebSocket 재연결 후 심판 목록:", judgeList);
+        .then(response => {
+            const judgeList = response.data;
+            console.log("📁 WebSocket 재연결 후 심판 목록:", judgeList);
 
-                setRoundScores((prev) =>
-                    prev.map((round) => ({
-                        ...round,
-                        judges: judgeList.length > 0
-                            ? judgeList.map((judge: any) => {
-                            const existingJudge = round.judges.find((j) => j.judgeName === judge.name);
-                            return existingJudge || {
-                                judgeName: judge.name,
-                                red: null,
-                                blue: null,
-                                submitted: false,
-                            };
-                        })
-                        :round.judges
+            setRoundScores((prev) =>
+                prev.map((round) => ({
+                    ...round,
+                    judges: judgeList.map((judge: any) => ({
+                    judgeName: judge.name,
+                    red: null,
+                    blue: null,
+                    submitted: false,
+                    isConnected: judge.connected
                     }))
-                );
-            })
-            .catch(error => {
-                console.error("❌ 심판 목록 복원 실패:", error);
-            });
+                }))
+            );
+        })
+        .catch(error => {
+            console.error("❌ 심판 목록 복원 실패:", error);
+        });
     }, [allHydrated, currentIndex]);
 
     useEffect(() => {
@@ -440,10 +437,15 @@ const Adminpage: React.FC = () => {
         );
     };
 
-    //✅ 관리자 비밀번호 지정 시 저장
-    const handleSavePassword = async () => {
+    //✅ 심판 입장 비밀번호 지정 및 qr 생성성
+    const handleSavePasswordAndGenerateQRs = async () => {
         if(!judgeCount || judgeCount < 1){
             alert("심판 수를 1명 이상 입력해주세요!");
+            return;
+        }
+
+        if(!judgeName.every(name => name.trim() !== "")){
+            alert("모든 심판 이름을 입력해주세요!");
             return;
         }
 
@@ -453,13 +455,22 @@ const Adminpage: React.FC = () => {
         }
 
         try{
-            //1️⃣ 심판 비밀번호 등록 요청청
-            const response = await axios.post(`${baseURL}/api/judge-access/password`, { password });
-            const accessCode = response.data.accessCode;
+            const currentMatch = matches[currentIndex];
+
+            //1️⃣ 서버에 심판 이름 + 비밀번호 + matchId 보내기
+            const response = await axios.post(`${baseURL}/api/judge-access/generate-qr`, {
+                matchId: currentMatch.id,
+                password,
+                judgeNames: judgeName,
+            });
+
+            const { accessCode, judgeQRList } = response.data;
             setAccessCode(accessCode);
+            setJudgeQRList(judgeQRList);
+
+            console.log("✅ 생성된 심판별 QR 리스트:", judgeQRList);
 
             //2️⃣ match_progress 테이블 생성 요청
-            const currentMatch = matches[currentIndex];
             await axios.post(`${baseURL}/api/progress/start`, null, {
                 params: {
                     matchId: currentMatch.id,
@@ -471,6 +482,7 @@ const Adminpage: React.FC = () => {
             setShowPasswordModal(false);
             setQrGenerated(true);
             setIsPasswordSet(true);
+
             alert("✅ 비밀번호 등록 완료!");
         }catch(error){
             console.error("❌ 비밀번호 등록 실패:", error);
@@ -515,24 +527,69 @@ const Adminpage: React.FC = () => {
                 {isFileUploaded ? "파일 수정" : "파일 업로드"}
             </button>
 
-            {isModalOpen && (
-                <div style={{ border: "1px solid #aaa", padding: 20, marginTop: 20 }}>
-                    <h3>📁엑셀 파일 업로드</h3>
-                    <input type="file" accept=".xlsx, .xls" onChange={handleFileChange}/>
-                    {sheetNames.length > 0 && (
-                        <select onChange={(e) => setSelectedSheet(Number(e.target.value))}>
-                            <option value="">시트를 선택하세요</option>
-                            {sheetNames.map((name, idx) => (
-                                <option key={name} value={idx}>{`${idx + 1}번 시트: ${name}`}</option>
-                            ))}
-                        </select>
-                    )}    
-                    <div>
-                        <button onClick={handleFileUpload}>📤엑셀 업로드</button>
-                        <button onClick={handleModalClose}>❌닫기</button>
-                        </div>
-                </div>
-            )}
+            <AnimatePresence>
+                {isModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.3 }}
+                            className="bg-white p-8 rounded-2xl shadow-2xl w-[90%] max-w-md text-center"
+                        >    
+                        
+                            {/* 상단 팝업 이름 */}
+                            <div className="mb-6 text-2xl font-bold">파일 업로드</div>
+                            
+                            {/* 파일 업로드 */}
+                            <div className="mb-4">
+                                <input 
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    onChange={handleFileChange}
+                                    className="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                />
+                            </div>
+
+                            {/* 시트 선택 */}
+                            {sheetNames.length > 0 && (
+                                <div className="relative w-full mb-4">
+                                    <select
+                                        onChange={(e) => setSelectedSheet(Number(e.target.value))}
+                                        className="w-full p-2.5 pr-10 border border-gray-300 rounded-lg text-gray-700 appearance-none"
+                                    >
+                                        <option value="">시트를 선택하세요</option>
+                                        {sheetNames.map((name, idx) => (
+                                            <option key={name} value={idx}>{`${idx + 1}번 시트: ${name}`}</option>
+                                        ))}
+                                    </select>
+
+                                    {/* 커스텀 화살표 추가 */}
+                                    <div className="absolute inset-y-0 flex items-center pointer-events-none right-3">
+                                        <ChevronDown size={20} className="text-gray-400" />
+                                    </div>
+                                </div>
+                            )}    
+                            
+                            {/* 하단 버튼 */}
+                            <div className="flex justify-center mt-6 space-x-4">
+                                <button
+                                    onClick={handleFileUpload}
+                                    className="px-6 py-2 font-bold text-white transition-all bg-blue-500 rounded-full hover:bg-blue-600"
+                                >
+                                    업로드
+                                </button>
+                                <button
+                                    onClick={handleModalClose}
+                                    className="px-6 py-2 font-bold text-gray-700 transition-all bg-white border border-gray-300 rounded-full hover:bg-gray-100"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </>
     );
     //✅ 엑셀 등록하기 전이라 경기 정보가 없을 때
@@ -600,11 +657,14 @@ const Adminpage: React.FC = () => {
                             {round.judges.length > 0 ? (
                                 round.judges.map((judge, idx) => (
                                     <span key={idx}>
-                                    {`${judge.judgeName} ${judge.submitted ? "✅" : "⌛"}`}
+                                        {judge.isConnected
+                                            ? `${judge.judgeName} ${judge.submitted ? "✅" : "⌛"}`
+                                            : "🙋 미입장"
+                                        }
                                     </span>
                                 ))
                             ) : (
-                                    <div>🙋 심판 미입장</div>
+                                    <div>🏃입장 대기중...</div>
                             )}
                              </div>
                     </div>
@@ -636,18 +696,42 @@ const Adminpage: React.FC = () => {
             
             {showPasswordModal && (
                 <div>
-                    <h3>🛡️ 심판 비밀번호 설정</h3>
+                    <div>심판 비밀번호 설정</div>
+
+                    {/* 심판 수 입력 */}
                     <label>심판 수: </label>
                     <input
                         type="number"
                         value={judgeCount ?? ""}
                         onChange={(e) => {
-                            const value = e.target.value;
-                            setJudgeCount(value === "" ? null : Number(value));
+                            const count = Number(e.target.value);
+                            setJudgeCount(count);
+                            setJudgeName(Array(count).fill(""));
                         }}
                         placeholder="심판 수 입력"
                     />
-                    <label>비밀번호: </label>
+
+                    {/* 심판 이름 입력 */}
+                    {judgeName.length > 0 && (
+                        <div>
+                            {judgeName.map((name, index) => (
+                                <input
+                                    key={index}
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => {
+                                        const newNames = [...judgeName];
+                                        newNames[index] = e.target.value;
+                                        setJudgeName(newNames);
+                                    }}
+                                    placeholder="심판 이름을 입력해 주세요."
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* 공통 비밀번호 입력 */}
+                    <label>비밀번호(4자리 숫자): </label>
                     <input
                         type="text"
                         value={password}
@@ -660,16 +744,31 @@ const Adminpage: React.FC = () => {
                         placeholder="숫자 4자리 입력"
                         maxLength={4}
                     />
-                    <button onClick={handleSavePassword}>비밀번호 등록 및 QR 생성</button>
+
+                    {/* 저장 버튼 */}
+                    <button onClick={handleSavePasswordAndGenerateQRs}>비밀번호 등록 및 QR 생성</button>
                     </div>
             )}
 
             {qrGenerated && (
                 <div>
-                <QRCode value={`${window.location.origin}/judge?accessCode=${accessCode}`} size={180} />
-                <div>📷 심판이 QR을 스캔하면 입장할 수 있어요</div>
+                    {judgeQRList.map((judge, index) => {
+                    const qrUrl = `${window.location.origin}/judge?accessCode=${accessCode}&deviceId=${judge.deviceId}`;
+                    
+                    console.log(`✅ [${judge.name}] QR URL: ${qrUrl}`);
+                
+                    return (
+                        <div key={index}>
+                        <div>{judge.name}</div>
+                        <QRCode 
+                            value={qrUrl}
+                            size={180}
+                        />
+                        </div>
+                    );
+                    })}
                 <button onClick={() => setQrGenerated(false)}>❌ QR 코드 닫기</button>
-                </div>
+              </div>
             )}
 
             {!qrGenerated && isPasswordSet && (

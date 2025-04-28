@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,35 +32,33 @@ public class JudgeController {
     private final SimpMessagingTemplate messagingTemplate;
 
 
-    //✅ 심판 입장 시 정보 등록하는 기능
+    //✅ 심판 입장 시 정보 등록 & 재입장 시 deviceID 확인 후 입장
     @PostMapping
     public ResponseEntity<?> registerJudge (
-            @RequestParam String name,
             @RequestParam String deviceId,
             @RequestParam Long matchId
     ) {
-        //🔴 입장 제한 체크(인원 초과될 수 있으니까)
-        if(judgesService.isJudgeLimitReached()){
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("이미 심판 인원이 모두 입장하였습니다.");
+        Optional<Judges> optionalJudge = judgesRepository.findByDeviceIdAndMatch_Id(deviceId, matchId);
+
+        if(optionalJudge.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("❌deviceId가 등록되어있지 않습니다.");
         }
 
-        Matches match = matchProgressService.findMatchById(matchId);
-
-        Judges judge = judgesService.registerJudge(name, deviceId);
-        judge.setMatch(match);
+        Judges judge = optionalJudge.get();
         judge.setConnected(true);
+
         judgesRepository.save(judge);
 
         //🔴 심판 입장 시 websocket 메시지 전송
         Map<String, Object> joinedJudge = Map.of(
-                "status", "JOINED",
-                "judgeName", judge.getName()
+            "status", "JOINED",
+            "judgeName", judge.getName()
         );
 
         messagingTemplate.convertAndSend("/topic/messages", joinedJudge);
 
-        JudgeResponse judgeResponse = new JudgeResponse(judge.getName(), judge.isConnected());
+        JudgeResponse judgeResponse = new JudgeResponse(judge.getName(), true);
         return ResponseEntity.ok(judgeResponse);
     }
 
@@ -86,13 +85,13 @@ public class JudgeController {
     //✅ 본부석에 현재 경기에 참가한 심판 이름 목록 전송
     @GetMapping("/current")
     public ResponseEntity<List<JudgeResponse>> getCurrentJudges(@RequestParam Long matchId) {
-        //🔴 현재 접속 중인 심판들 중, 이번 경기와 연결된 심판만 가져오기
-        List<Judges> judges = judgesRepository.findByIsConnectedTrueAndMatch_Id(matchId);
+        //🔴 경기(matchId)에 소속된 모든 심판 가져오기
+        List<Judges> judges = judgesRepository.findByMatch_Id(matchId);
 
-        List<JudgeResponse> judgeNames = judges.stream()
+        List<JudgeResponse> judgeResponses = judges.stream()
                 .map(judge -> new JudgeResponse(judge.getName(), judge.isConnected()))
                 .toList();
 
-        return ResponseEntity.ok(judgeNames);
+        return ResponseEntity.ok(judgeResponses);
     }
 }

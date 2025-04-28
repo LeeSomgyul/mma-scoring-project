@@ -48,18 +48,20 @@ const JudgePage: React.FC = () => {
   const accessCode = searchParams.get("accessCode");
   const navigate = useNavigate();
 
-  //🔥테스트용(나중에 삭제 가능)
-  const [debugLog, setDebugLog] = useState<string[]>([]);
-  const log = (msg: string) => {
-    console.log(msg); // 콘솔도 남기고
-    setDebugLog(prev => [...prev.slice(-10), msg]); // 최근 10개까지 유지
-  };
-
-  //✅ devicedID가 judge페이지 들어오자마자 저장되도록
+  //✅ 본부에서 QR에 담아 전송한 deviceID를 심판들 각자 기기에 심기
   useEffect(() => {
-    const id = getOrCreateDeviceId();
-    log("✅ 초기 deviceId 확보:" + id);
+    const urlParams = new URLSearchParams(window.location.search);
+    const deviceIdFromQR = urlParams.get("deviceId");
+
+    if(deviceIdFromQR){
+      localStorage.setItem("judgeDeviceId", deviceIdFromQR);
+      console.log("✅ QR로부터 deviceId 저장 완료:", deviceIdFromQR);
+    }else{
+      const id = getOrCreateDeviceId();
+      console.log("✅ deviceId 새로 생성:", id);
+    }
   },[]);
+
 
   useEffect(() => {
     if (!matchInfo || !isHydrated || matches.length === 0) return;
@@ -82,7 +84,8 @@ const JudgePage: React.FC = () => {
     setLastFetchedMatchId(matchInfo.id);
 
     //🔴 서버에서 최신 점수 덮어쓰기
-      const deviceId = getOrCreateDeviceId();
+      const deviceId = localStorage.getItem("judgeDeviceId");
+
       if(!deviceId) return;
 
       console.log("📦 score 요청 시 matchId:", matchInfo?.id);
@@ -164,12 +167,25 @@ const JudgePage: React.FC = () => {
 
     //🔴 심판이 새로고침 및 나갔다와도 데이터 안날라가도록
     const restoredDeviceId = localStorage.getItem("judgeDeviceId");
-    const restoredName = useJudgeStore.getState().judgeName;
-    const wasVerified = useJudgeStore.getState().verified;
+    const restoredName = localStorage.getItem("judgeName");
+    const wasVerified = localStorage.getItem("verified") === "true";
 
     if (restoredDeviceId && restoredName && wasVerified) {
       setIsVerified(true);
-      console.log("✅ 자동 인증 복원됨:", restoredName);
+      setVerified(true);
+      setDeviceId(restoredDeviceId);
+      setJudgeName(restoredName);
+
+      axios.post(`${baseURL}/api/judge-access/restore`, {
+        deviceId: restoredDeviceId,
+        matchId: matchInfo?.id,
+      }).then(() => {
+        console.log("✅ 심판 복구 성공");
+      }).catch(error => {
+        console.error("❌ 복구 실패:", error);
+        setIsVerified(false);
+        setVerified(false);
+      });
     }
   },[matchInfo]);
 
@@ -280,8 +296,8 @@ const JudgePage: React.FC = () => {
   //✅ 비밀번호 검증 버튼
   const handleVerify = async() => {
     
-    if(!judgeName || !inputPassword){
-      alert("이름과 비밀번호를 모두 입력해주세요.");
+    if(!inputPassword){
+      alert("비밀번호를 입력해주세요.");
       return;
     }
 
@@ -297,7 +313,11 @@ const JudgePage: React.FC = () => {
       });
 
       if(response.data === true){
-        const deviceId = getOrCreateDeviceId();
+        const deviceId = localStorage.getItem("judgeDeviceId");
+        if (!deviceId) {
+          alert("❌ deviceId가 없습니다. QR을 다시 찍어주세요.");
+          return;
+        }
 
         const matchId = matchInfo?.id;
         if (!matchId) {
@@ -309,7 +329,6 @@ const JudgePage: React.FC = () => {
         try{
           judgeResponse = await axios.post(`${baseURL}/api/judges`, null, {
             params: {
-              name: judgeName,
               deviceId,
               matchId,
             },
@@ -329,8 +348,10 @@ const JudgePage: React.FC = () => {
         alert("✅ 인증 성공!");
 
         setIsVerified(true);
-        setVerified(true);//🔴 zustand에도 반영
+        setVerified(true);
         setDeviceId(deviceId);
+
+        localStorage.setItem("verified", "true");
       }else{
         alert("❌ 비밀번호가 일치하지 않습니다.");
       }
@@ -379,7 +400,7 @@ const JudgePage: React.FC = () => {
       return;
     }
 
-    const deviceId = getOrCreateDeviceId();
+    const deviceId = localStorage.getItem("judgeDeviceId");
     if (!deviceId) {
       alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
       return;
@@ -453,7 +474,12 @@ const JudgePage: React.FC = () => {
 
     setEditing(newEditing);
 
-    const deviceId = getOrCreateDeviceId();
+    const deviceId = localStorage.getItem("judgeDeviceId");
+    if (!deviceId) {
+      alert("❌ deviceId가 없습니다. QR을 다시 찍어주세요.");
+      return;
+    }
+    
     const roundId = matchInfo?.rounds?.[roundIndex]?.id;
 
     if(stompClient && stompClient.connected && deviceId && roundId){
@@ -489,12 +515,6 @@ const JudgePage: React.FC = () => {
       {!isVerified ? (
         <div>
           <h3>🧑‍⚖️ 심판 입장</h3>
-          <input
-            type="text"
-            placeholder="이름을 입력하세요."
-            value={judgeName ?? ""}
-            onChange={(e) => setJudgeName(e.target.value)}
-          />
           <input
             type="text"
             placeholder="비밀번호 입력 (숫자 4자리)"
@@ -544,14 +564,6 @@ const JudgePage: React.FC = () => {
         ) : (
           <div>⏳ 경기 정보를 불러오는 중입니다...</div>
         )}
-
-      {/*🔥테스트용 로그보기(나중에 삭제 가능) */}
-      <div style={{ background: '#f0f0f0', padding: '10px', fontSize: '12px' }}>
-        <strong>📋 DEBUG LOG</strong>
-        <ul>
-          {debugLog.map((line, index) => <li key={index}>{line}</li>)}
-        </ul>
-      </div>
       </div>
     );
 };
