@@ -1,13 +1,15 @@
 package com.mma.backend.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mma.backend.entity.MatchProgress;
+import com.mma.backend.repository.MatchProgressRepository;
 import com.mma.backend.service.MatchProgressService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/progress")
@@ -15,6 +17,7 @@ import java.util.Map;
 public class MatchProgressController {
 
     private final MatchProgressService matchProgressService;
+    private final MatchProgressRepository matchProgressRepository;
 
     //✅ 경기 시작 -> MatchProgress 생성
     @PostMapping("/start")
@@ -80,6 +83,24 @@ public class MatchProgressController {
             return ResponseEntity.ok(Map.of("nextMatchId", nextMatchId));
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("전환 실패: " + e.getMessage());
+        }
+    }
+
+    //✅ 새로고침 해도 QR 정보 가져올 수 있도록
+    @GetMapping("/{matchId}/qr-generated")
+    public ResponseEntity<?> getQRStatus(@PathVariable Long matchId) {
+        Optional<MatchProgress> optionalProgress = matchProgressRepository.findByCurrentMatch_Id(matchId);
+
+        if (optionalProgress.isPresent()) {
+            MatchProgress progress = optionalProgress.get();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("qrGenerated", progress.getQrGenerated());
+            response.put("isPasswordSet", progress.getPasswordSet());
+
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("❌ match_progress를 찾을 수 없습니다.");
         }
     }
 }

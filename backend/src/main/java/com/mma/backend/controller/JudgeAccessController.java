@@ -1,12 +1,13 @@
 package com.mma.backend.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mma.backend.dto.GenerateQrRequest;
 import com.mma.backend.dto.JudgeQrResponse;
-import com.mma.backend.dto.RestoreRequest;
-import com.mma.backend.entity.Judges;
+import com.mma.backend.repository.MatchProgressRepository;
+import com.mma.backend.repository.MatchesRepository;
 import com.mma.backend.service.JudgeAccessService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,9 @@ import java.util.Map;
 public class JudgeAccessController {
 
     private final JudgeAccessService judgeAccessService;
+    private final MatchesRepository matchesRepository;
+    private final MatchProgressRepository matchProgressRepository;
+    private final ObjectMapper objectMapper;
 
     //✅ 관리자의 비밀번호 설정 및 심판 별 QR생성
     @PostMapping("/generate-qr")

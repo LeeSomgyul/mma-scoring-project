@@ -43,6 +43,8 @@ public class MatchProgressService {
                 .isLocked(false)
                 .isEndOfMatch(false)
                 .judgeCount(judgeCount)
+                .qrGenerated(true)
+                .passwordSet(true)
                 .build();
 
         return matchProgressRepository.save(progress);
@@ -160,15 +162,5 @@ public class MatchProgressService {
         webSocketSender.sendNextMatch(savedProgress);
 
         return savedProgress;
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<MatchProgress> findCurrentProgress (){
-        return matchProgressRepository.findCurrentProgress();
-    }
-
-    public Matches findMatchById(Long matchId){
-        return matchesRepository.findById(matchId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 경기 정보를 찾을 수 없습니다: " + matchId));
     }
 }

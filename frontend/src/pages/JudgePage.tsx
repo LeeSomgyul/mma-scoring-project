@@ -33,7 +33,6 @@ const JudgePage: React.FC = () => {
   //✅ zustand 상태 연결
   const {judgeName,setJudgeName,deviceId,setDeviceId,verified,setVerified} = useJudgeStore();
   const {scores, setScores, submitted, setSubmitted, editing, setEditing, currentRoundIndex, setCurrentRoundIndex} = useJudgeScoreStore();
-  const isHydrated = useJudgeScoreStore((state) => state.isHydrated);
   const { matchInfo, setMatchInfo } = useJudgeMatchStore();
   const { matches, setMatches, currentIndex, setCurrentIndex } = useMatchStore();
   //✅ 일반
@@ -62,9 +61,13 @@ const JudgePage: React.FC = () => {
     }
   },[]);
 
+  //✅ fetchInitialData 함수 실행행
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
-    if (!matchInfo || !isHydrated || matches.length === 0) return;
+    if (!matchInfo || matches.length === 0) return;
   
     const index = matches.findIndex((m) => m.id === matchInfo.id);
     if (index !== -1) {
@@ -73,11 +76,11 @@ const JudgePage: React.FC = () => {
     } else {
       console.warn("⚠️ matchInfo.id에 해당하는 경기 없음");
     }
-  }, [matchInfo, isHydrated, matches]);
+  }, [matchInfo, matches]);
 
   //✅ localStorage에서 복원 -> 서버에서 복원 
   useEffect(() => {
-    if(!isVerified || !isHydrated || !matchInfo || !isInitialLoad) return;
+    if(!isVerified || !matchInfo || !isInitialLoad) return;
 
     if(lastFetchedMatchId === matchInfo.id) return;
 
@@ -130,7 +133,7 @@ const JudgePage: React.FC = () => {
       .finally(() => {
         setIsInitialLoad(false);
       });
-  },[isVerified, isHydrated, matchInfo]);
+  },[isVerified, matchInfo]);
 
   //✅ 해당 브라우저 페이지가 처음 QR로 입장한건지 감지하기 위한 코드
   useEffect(() => {
@@ -145,9 +148,11 @@ const JudgePage: React.FC = () => {
   }, []);
 
 
+  /*
   //✅ 심판이 새로고침하거나 나갔다가 돌아왔을 떄, 다시 로그인하지 않아도 되는 것. 
   useEffect(() => {
     //🔴matchId 비교해서 이전 경기의 로컬 남아있음 초기화.(이유: 크롬에서 삭제가 잘 안됨.)
+    /*
     const saved = localStorage.getItem("judge-score-storage");
     const enteredViaQR = sessionStorage.getItem("enteredViaQR");
 
@@ -164,8 +169,10 @@ const JudgePage: React.FC = () => {
         window.location.reload();
       }
     }
+    */
 
     //🔴 심판이 새로고침 및 나갔다와도 데이터 안날라가도록
+    /*
     const restoredDeviceId = localStorage.getItem("judgeDeviceId");
     const restoredName = localStorage.getItem("judgeName");
     const wasVerified = localStorage.getItem("verified") === "true";
@@ -187,7 +194,9 @@ const JudgePage: React.FC = () => {
         setVerified(false);
       });
     }
+    
   },[matchInfo]);
+  */
 
   // ✅ WebSocket 연결
   useEffect(() => {
@@ -223,8 +232,7 @@ const JudgePage: React.FC = () => {
           }
         });
 
-        if(!isHydrated) return;
-
+        /*
         //🔴 최초 연결 시 초기 경기 정보 가져오기
         axios
           .get("/api/matches")
@@ -254,6 +262,7 @@ const JudgePage: React.FC = () => {
             }
           })
           .catch((err) => console.error("❌ match 정보 가져오기 실패:", err));
+          */
       },
 
       onStompError: (frame) => {
@@ -275,7 +284,7 @@ const JudgePage: React.FC = () => {
     return () => {
       client.deactivate();
     };
-  }, [isHydrated]);
+  }, []);
 
   //✅ 심판이 라운드 순서대로 열 수 있도록 input제어
   useEffect(() => {
@@ -291,6 +300,78 @@ const JudgePage: React.FC = () => {
     setEditing(newEditing);
   }, [submitted]);
 
+  //✅ 경기정보+심판정보+점수 가져오기
+  const fetchInitialData = async () => {
+    try {
+      const deviceId = localStorage.getItem("judgeDeviceId");
+      if (!deviceId) {
+        console.error("❌ deviceId가 없습니다.");
+        return;
+      }
+  
+      // 1. 전체 경기 목록 가져오기
+      const matchesResponse = await axios.get(`${baseURL}/api/matches`);
+      const matches = matchesResponse.data;
+      setMatches(matches);
+  
+      if (matches.length === 0) {
+        console.warn("❌ 경기가 없습니다.");
+        return;
+      }
+  
+      // 2. 현재 진행 중인 경기 선택 (무조건 첫 번째)
+      const currentMatch = matches[0];
+      const matchId = currentMatch.id;
+  
+      // 3. 해당 경기의 라운드 정보 가져오기
+      const roundsResponse = await axios.get(`${baseURL}/api/rounds/match/${matchId}`);
+      const rounds = roundsResponse.data;
+  
+      setMatchInfo({
+        ...currentMatch,
+        rounds,
+      });
+  
+      // 4. 점수 가져오기 (내 점수만 추출)
+      const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`, {
+        params: { matchId },
+      });
+      const roundScoresFromServer = scoresResponse.data;
+  
+      const myScores: MyScore[] = roundScoresFromServer.map((round: any) => {
+        const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
+        return {
+          red: myScore?.red?.toString() ?? "",
+          blue: myScore?.blue?.toString() ?? "",
+          submitted: myScore?.submitted ?? false,
+        };
+      });
+  
+      const scores = myScores.map((s) => ({ red: s.red, blue: s.blue }));
+      const submitted = myScores.map((s) => s.submitted);
+      const editing = submitted.map((s, i) => {
+        if (i === 0) return !submitted[0];
+        return submitted[i - 1] && !s;
+      });
+  
+      useJudgeScoreStore.setState({
+        scores,
+        submitted,
+        editing,
+        currentRoundIndex: 0,
+      });
+  
+      setScores(scores);
+      setSubmitted(submitted);
+      setEditing(editing);
+      setCurrentRoundIndex(0);
+  
+      console.log("✅ 심판 초기 데이터 복원 완료");
+    } catch (error) {
+      console.error("❌ 심판 초기 데이터 로딩 실패:", error);
+    }
+  };
+  
 
 
   //✅ 비밀번호 검증 버튼

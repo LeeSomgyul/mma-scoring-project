@@ -1,6 +1,7 @@
 package com.mma.backend.repository;
 
 import com.mma.backend.entity.MatchProgress;
+import com.mma.backend.entity.Matches;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -12,5 +13,7 @@ public interface MatchProgressRepository extends JpaRepository<MatchProgress, Lo
 
     @Query("SELECT m FROM MatchProgress m WHERE m.isEndOfMatch = false")
     Optional<MatchProgress> findCurrentProgress();//현재 진행 중인 경기 정보 조회
+
+    Optional<MatchProgress> findByCurrentMatch_Id(Long matchId);
 
 }

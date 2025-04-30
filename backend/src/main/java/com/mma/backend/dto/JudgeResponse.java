@@ -9,4 +9,5 @@ import lombok.Data;
 public class JudgeResponse {
     private String name;
     private boolean isConnected;
+    private String deviceId;
 }

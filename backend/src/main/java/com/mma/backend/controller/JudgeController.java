@@ -2,8 +2,6 @@ package com.mma.backend.controller;
 
 import com.mma.backend.dto.JudgeResponse;
 import com.mma.backend.entity.Judges;
-import com.mma.backend.entity.MatchProgress;
-import com.mma.backend.entity.Matches;
 import com.mma.backend.repository.JudgesRepository;
 import com.mma.backend.service.JudgesService;
 import com.mma.backend.service.MatchProgressService;
@@ -14,11 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -28,7 +24,6 @@ public class JudgeController {
 
     private final JudgesService judgesService;
     private final JudgesRepository judgesRepository;
-    private final MatchProgressService matchProgressService;
     private final SimpMessagingTemplate messagingTemplate;
 
 
@@ -58,7 +53,7 @@ public class JudgeController {
 
         messagingTemplate.convertAndSend("/topic/messages", joinedJudge);
 
-        JudgeResponse judgeResponse = new JudgeResponse(judge.getName(), true);
+        JudgeResponse judgeResponse = new JudgeResponse(judge.getName(), true, judge.getDeviceId());
         return ResponseEntity.ok(judgeResponse);
     }
 
@@ -89,7 +84,11 @@ public class JudgeController {
         List<Judges> judges = judgesRepository.findByMatch_Id(matchId);
 
         List<JudgeResponse> judgeResponses = judges.stream()
-                .map(judge -> new JudgeResponse(judge.getName(), judge.isConnected()))
+                .map(judge -> new JudgeResponse(
+                        judge.getName(),
+                        judge.isConnected(),
+                        judge.getDeviceId()
+                        ))
                 .toList();
 
         return ResponseEntity.ok(judgeResponses);

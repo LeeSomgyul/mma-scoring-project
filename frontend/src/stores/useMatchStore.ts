@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { RoundInfo } from './useJudgeMatchStore';
 
 export interface Match {
     id: number;
@@ -10,42 +10,23 @@ export interface Match {
     redGym: string;
     blueName: string;
     blueGym: string;
-    createdAt: string;
+    rounds: RoundInfo[];
 }
 
-interface MatchSotreState {
+interface MatchStoreState {
     matches: Match[];
     setMatches: (m: Match[]) => void;
   
     currentIndex: number;
     setCurrentIndex: (i: number) => void;
-
-    isHydrated: boolean;
-    setHydrated: (val: boolean) => void;
 }
 
-export const useMatchStore = create<MatchSotreState>()(
-    persist(
-      (set, get) => ({
-        matches: [],
-        setMatches: (m) => set({ matches: m }),
+export const useMatchStore = create<MatchStoreState>()(
+  (set) => ({
+    matches: [],
+    setMatches: (m) => set({ matches: m }),
   
-        currentIndex: 0,
-        setCurrentIndex: (i) => set({ currentIndex: i }),
-  
-        isHydrated: false,
-        setHydrated: (val) => set({ isHydrated: val }),
-      }),
-      {
-        name: 'match-storage',// localStorage에 저장될 키 이름
-        onRehydrateStorage: () => (state) => {
-          state?.setHydrated(true);
-        },
-        partialize: (state) => ({
-          matches: state.matches,
-          currentIndex: state.currentIndex,
-          isHydrated: state.isHydrated,
-        }),
-      }
-    )
-  );
+    currentIndex: 0,
+    setCurrentIndex: (i) => set({ currentIndex: i }),
+  })
+);

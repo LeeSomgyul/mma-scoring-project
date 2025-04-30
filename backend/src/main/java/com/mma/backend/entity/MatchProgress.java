@@ -36,4 +36,10 @@ public class MatchProgress {
     @Column(name = "judge_count")
     private Integer judgeCount;//현재 경기의 심판 수
 
+    @Column(name = "qr_generated")
+    private Boolean qrGenerated = false;//QR 생성 유무
+
+    @Column(name = "is_password_set")
+    private Boolean passwordSet = false;//비밀번호 설정 유무
+
 }

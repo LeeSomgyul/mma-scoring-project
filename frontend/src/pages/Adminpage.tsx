@@ -19,11 +19,6 @@ import { ChevronDown } from "lucide-react";
 
 
 const Adminpage: React.FC = () => {
-    //✅ zustand의 isHydrated 가져오기
-    const matchHydrated = useMatchStore((s) => s.isHydrated);
-    const scoreHydrated = useScoreStore((s) => s.isHydrated);
-    const qrHydrated = useQRStore((s) => s.isHydrated);
-    const allHydrated = matchHydrated && scoreHydrated && qrHydrated;
     
     //✅ zustand 상태 적용
     const { matches, setMatches, currentIndex, setCurrentIndex } = useMatchStore();
@@ -66,28 +61,35 @@ const Adminpage: React.FC = () => {
         return sum + blueSum;
     }, 0);
 
-
-    //✅ 네트워크 끊김 또는 심판 데이터 최신화 작업
-    useEffect(() => {
-        const fetchSavedScores = async () => {
-          if (!isReconnected || !matches[currentIndex]) return;
-      
-          try {
-            const response = await axios.get(`${baseURL}/api/scores/by-match`, {
-              params: { matchId: matches[currentIndex].id },
-            });
-      
-            const roundScoresFromServer = response.data;
-            setRoundScores(roundScoresFromServer);
-            setScoreStatus("📦 저장된 점수 불러옴");
-          } catch (err) {
-            console.error("❌ 점수 복원 실패:", err);
-          }
-        };
-      
-        fetchSavedScores();
-    }, [isReconnected, currentIndex]);
             
+    //✅ fetchInitialData 함수 자동 실행
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
+
+    //✅ QR 정보를 서버에서 가져오기(진행중인 경기, 심판, deviceId 등)
+    useEffect(() => {
+        const currentMatchId = matches[currentIndex]?.id;
+
+        // 🔴 매치 없으면 요청 안함
+        if (!currentMatchId) return;
+      
+        axios.get(`${baseURL}/api/progress/${currentMatchId}/qr-generated`)
+          .then((res) => {
+            console.log("✅ QR 상태 복원:", res.data);
+            if (res.data.qrGenerated) {
+              setQrGenerated(true);
+              setShowQRButton(true);
+              setIsPasswordSet(res.data.isPasswordSet);
+              if (res.data.accessCode) {
+                setAccessCode(res.data.accessCode);
+              }
+            }
+          })
+          .catch((error) => {
+            console.error("❌ QR 상태 가져오기 실패:", error);
+          });
+      }, [matches, currentIndex]); 
 
     //✅ WebSocket 연결
     useEffect(() => {
@@ -130,20 +132,14 @@ const Adminpage: React.FC = () => {
                                 const judgeName = parsed.judgeName.trim();
                             
                                 setRoundScores(prev =>
-                                    prev.map(round => {
-                                        const alreadyExists = round.judges.some(j => j.judgeName.trim() === judgeName);
-                                        if (alreadyExists) return round;
-                                        return {
-                                            ...round,
-                                            judges: [...round.judges, {
-                                                judgeName,
-                                                red: null,
-                                                blue: null,
-                                                submitted: false,
-                                                isConnected: true
-                                            }]
-                                        };
-                                    })
+                                    prev.map(round => ({
+                                        ...round,
+                                        judges: round.judges.map(j =>
+                                            j.judgeName.trim() === judgeName
+                                                ? { ...j, isConnected: true }
+                                                : j
+                                        )
+                                    }))
                                 );
                             }
     
@@ -206,56 +202,7 @@ const Adminpage: React.FC = () => {
           };
     }, []);
 
-    //✅ 심판 목록 가져오는 요청
-    useEffect(() => {
-        const currentMatchId = matches[currentIndex]?.id;
-        if (!allHydrated || !currentMatchId) {
-            console.warn("❌ matchId가 없어 심판 목록 요청을 건너뜀");
-            return;
-        }
 
-        axios.get(`${baseURL}/api/judges/current`, {
-            params: {matchId: currentMatchId}
-        })
-        .then(response => {
-            const judgeList = response.data;
-            console.log("📁 WebSocket 재연결 후 심판 목록:", judgeList);
-
-            setRoundScores((prev) =>
-                prev.map((round) => ({
-                    ...round,
-                    judges: judgeList.map((judge: any) => ({
-                    judgeName: judge.name,
-                    red: null,
-                    blue: null,
-                    submitted: false,
-                    isConnected: judge.connected
-                    }))
-                }))
-            );
-        })
-        .catch(error => {
-            console.error("❌ 심판 목록 복원 실패:", error);
-        });
-    }, [allHydrated, currentIndex]);
-
-    useEffect(() => {
-        console.log("✅ match hydrated:", useMatchStore.getState().isHydrated);
-      }, []);
-      
-
-
-    //✅ 전체 경기 정보 불러오기
-    const fetchMatches = () => {
-        axios.get(`${baseURL}/api/matches`)
-            .then((response) => {
-                setMatches(response.data);
-                setCurrentIndex(0);
-            })
-            .catch((error) => {
-                console.log("❌ 경기 목록 불러오기 실패:", error);
-            });
-    };    
 
     //✅ 초기 라운드 수만큼 점수 미리 채워두기
     useEffect(() => {
@@ -279,6 +226,61 @@ const Adminpage: React.FC = () => {
             });
         }
       }, [matches, currentIndex, roundScores.length]);
+
+
+    //✅ 새로고침 시 경기목록+점수+선수정보 가져오기
+    const fetchInitialData = async() => {
+        try{
+            //🔴 전체 경기 목록 가져오기
+            const matchesResponse = await axios.get(`${baseURL}/api/matches`);
+            const matches = matchesResponse.data;
+            setMatches(matches);
+
+            if(matches.length === 0){
+                console.warn("❌ 경기가 없습니다.");
+                return;
+            }
+
+            //🔴 첫 번째 경기로 currentIndex 0 설정
+            const firstMatchId = matches[0].id;
+            setCurrentIndex(0);
+
+            //🔴 현재 matchId로 점수 가져오기(경기에 맞는 점수)
+            const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`,{
+                params: {matchId: firstMatchId},
+            });
+            const roundScoresFromServer = scoresResponse.data;
+
+            //🔴 현재 matchId로 심판 목록 가져오기(경기에 맞는 심판)
+            const judgesResponse = await axios.get(`${baseURL}/api/judges/current`, {
+                params: {matchId: firstMatchId},
+            });
+            const judgeList = judgesResponse.data;
+
+            console.log("✅ 초기 로딩: matches:", matches);
+            console.log("✅ 초기 로딩: roundScores:", roundScoresFromServer);
+            console.log("✅ 초기 로딩: judgeList:", judgeList);
+
+            const mergedRoundScores = roundScoresFromServer.map((round: any) => ({
+                roundId: round.roundId,
+                roundNumber: round.roundNumber,
+                judges: judgeList.map((judge: any) => ({
+                  judgeName: judge.name,
+                  red: null,
+                  blue: null,
+                  submitted: false,
+                  isConnected: judge.connected,
+                })),
+              }));
+          
+              setRoundScores(mergedRoundScores);
+              setScoreStatus("⏳ 점수 대기 중...");
+        } catch (error) {
+            console.error("❌ 초기 데이터 로딩 실패:", error);
+        }
+    };
+
+
 
     //✅ input 엑셀 선택 기능
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,26 +316,21 @@ const Adminpage: React.FC = () => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("sheet", String(selectedSheet + 1));
-
-        //🔥삭제가능
-        console.log("📄 file:", file);
-        console.log("📄 selectedSheet:", selectedSheet);
-        console.log("📄 formData 전체:", [...formData.entries()]); 
         
     
         try {
             await axios.post(`${baseURL}/api/matches/upload`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
-                withCredentials: true,
             });
 
+            alert("✅ 파일 업로드 성공!");
+
+            await fetchInitialData();
+
             setIsFileUploaded(true);
-
             setShowQRButton(true);
-
             setIsModalOpen(false);
 
-            fetchMatches();
         }catch(error:any){
             console.error("❌ 업로드 실패:", error);
             console.error("📥 서버 응답:", error.response?.data);
@@ -457,7 +454,7 @@ const Adminpage: React.FC = () => {
         try{
             const currentMatch = matches[currentIndex];
 
-            //1️⃣ 서버에 심판 이름 + 비밀번호 + matchId 보내기
+            //🔴 서버에 심판 이름 + 비밀번호 + matchId 보내기
             const response = await axios.post(`${baseURL}/api/judge-access/generate-qr`, {
                 matchId: currentMatch.id,
                 password,
@@ -470,7 +467,7 @@ const Adminpage: React.FC = () => {
 
             console.log("✅ 생성된 심판별 QR 리스트:", judgeQRList);
 
-            //2️⃣ match_progress 테이블 생성 요청
+            //🔴 match_progress 테이블 생성 요청
             await axios.post(`${baseURL}/api/progress/start`, null, {
                 params: {
                     matchId: currentMatch.id,
@@ -688,6 +685,7 @@ const Adminpage: React.FC = () => {
                 경기 종료
             </button>
 
+            {/* 아직 QR 생성 안했을 때 */}
             {showQRButton && !isPasswordSet && (
                 <div>
                     <button onClick={() => setShowPasswordModal(true)}>📱 심판용 QR 코드 생성</button>   
@@ -750,6 +748,7 @@ const Adminpage: React.FC = () => {
                     </div>
             )}
 
+            {/*QR 생성해서 보여주고 있을 때 */}
             {qrGenerated && (
                 <div>
                     {judgeQRList.map((judge, index) => {
@@ -771,6 +770,7 @@ const Adminpage: React.FC = () => {
               </div>
             )}
 
+            {/* QR 닫았지만 생성된 상태라면 '다시 보기' */}
             {!qrGenerated && isPasswordSet && (
             <button onClick={() => setQrGenerated(true)}>
                 🔁 QR 코드 다시 보기

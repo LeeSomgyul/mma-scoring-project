@@ -154,7 +154,8 @@ public class ScoresService {
                       judge.getName(),
                       score.getRedScore(),
                       score.getBlueScore(),
-                      score.isSubmitted()
+                      score.isSubmitted(),
+                      judge.isConnected()
                     );
                 }else{
                     //🔴 점수 미제출 심판 정보
@@ -163,7 +164,8 @@ public class ScoresService {
                             judge.getName(),
                             null,
                             null,
-                            false
+                            false,
+                            judge.isConnected()
                     );
                 }
             }).toList();
