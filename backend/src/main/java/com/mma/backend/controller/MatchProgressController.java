@@ -1,6 +1,7 @@
 package com.mma.backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mma.backend.dto.CurrentMatchDto;
 import com.mma.backend.entity.MatchProgress;
 import com.mma.backend.repository.MatchProgressRepository;
 import com.mma.backend.service.MatchProgressService;
@@ -19,6 +20,14 @@ public class MatchProgressController {
     private final MatchProgressService matchProgressService;
     private final MatchProgressRepository matchProgressRepository;
 
+    //✅ 현재 경기 정보 불러오기
+    @GetMapping
+    public ResponseEntity<CurrentMatchDto> getCurrentProgress() {
+        MatchProgress progress = matchProgressService.getCurrentProgress();
+        Long matchId = progress.getCurrentMatch().getId();
+        return ResponseEntity.ok(new CurrentMatchDto(matchId));
+    }
+
     //✅ 경기 시작 -> MatchProgress 생성
     @PostMapping("/start")
     public ResponseEntity<MatchProgress> createProgress(
@@ -26,12 +35,6 @@ public class MatchProgressController {
     ) {
         MatchProgress createdProgress = matchProgressService.createProgress(matchId, judgeCount);
         return ResponseEntity.ok(createdProgress);
-    }
-
-    //✅ 현재 경기 정보를 어디서든 불러올 수 있도록 하는 기능
-    @GetMapping
-    public ResponseEntity<MatchProgress> getCurrentProgress() {
-        return ResponseEntity.ok(matchProgressService.getCurrentProgress());
     }
 
     //✅ 현재 진행 중인 라운드 번호를 조회하는 기능

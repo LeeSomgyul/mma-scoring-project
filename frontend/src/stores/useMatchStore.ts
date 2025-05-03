@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { RoundInfo } from './useJudgeMatchStore';
+import { persist } from 'zustand/middleware';
 
 export interface Match {
     id: number;
@@ -19,14 +20,30 @@ interface MatchStoreState {
   
     currentIndex: number;
     setCurrentIndex: (i: number) => void;
+
+    isHydrated: boolean;
+    setIsHydrated: (val: boolean) => void;
 }
 
 export const useMatchStore = create<MatchStoreState>()(
-  (set) => ({
-    matches: [],
-    setMatches: (m) => set({ matches: m }),
-  
-    currentIndex: 0,
-    setCurrentIndex: (i) => set({ currentIndex: i }),
-  })
+  persist(
+    (set) => ({
+      matches: [],
+      setMatches: (m) => set({ matches: m }),
+    
+      currentIndex: 0,
+      setCurrentIndex: (i) => set({ currentIndex: i }),
+
+      isHydrated: false,
+      setIsHydrated: (val) => set({ isHydrated: val }),
+    }),
+    {
+      name: "match-storage",
+      onRehydrateStorage: (state) => {
+        return () => {
+          state?.setIsHydrated(true);
+        };
+      },
+    }
+  )
 );

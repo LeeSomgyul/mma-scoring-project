@@ -12,5 +12,5 @@ public class JudgeScoreResponse {
     private Integer red;
     private Integer blue;
     private Boolean submitted;
-    private Boolean connected;
+    private Boolean isConnected;
 }

@@ -21,10 +21,10 @@ import { ChevronDown } from "lucide-react";
 const Adminpage: React.FC = () => {
     
     //✅ zustand 상태 적용
-    const { matches, setMatches, currentIndex, setCurrentIndex } = useMatchStore();
+    const { matches, setMatches, currentIndex, setCurrentIndex, isHydrated } = useMatchStore();
     const { roundScores, setRoundScores, currentRoundIndex, setCurrentRoundIndex, scoreStatus, setScoreStatus } = useScoreStore();
-    const { showQRButton, setShowQRButton, qrGenerated, setQrGenerated, isPasswordSet, setIsPasswordSet, accessCode, setAccessCode,  isFileUploaded, setIsFileUploaded } = useQRStore();
-    
+    const { judgeQRList, setJudgeQRList,showQRButton, setShowQRButton, qrGenerated, setQrGenerated, isPasswordSet, setIsPasswordSet, accessCode, setAccessCode,  isFileUploaded, setIsFileUploaded } = useQRStore();
+
     //✅ 일반
     const [showQR, setShowQR] = useState(false);
     const [file, setFile] = useState<File | null>(null);
@@ -35,13 +35,14 @@ const Adminpage: React.FC = () => {
     const [password, setPassword] = useState<string>("");
     const [judgeCount, setJudgeCount] = useState<number | null>(null);
     const [judgeName, setJudgeName] = useState<string[]>([]);
-    const [judgeQRList, setJudgeQRList] = useState<{ name: string; deviceId: string }[]>([]);
     const [isReconnected, setIsReconnected] = useState(false);
     const initializedOnceRef = useRef(false);
+    const stompClientRef = useRef<Client | null>(null);
 
 
 
-    //✅ 전역으로 쓰이는 코드드
+
+    //✅ 전역으로 쓰이는 코드
     const baseURL = import.meta.env.VITE_API_BASE_URL;
     const current = matches[currentIndex];
     const navigate = useNavigate();
@@ -60,6 +61,8 @@ const Adminpage: React.FC = () => {
         const blueSum = round.judges.reduce((b, judge) => b + (judge.blue ?? 0), 0);
         return sum + blueSum;
     }, 0);
+
+    if(!isHydrated) return null;
 
             
     //✅ fetchInitialData 함수 자동 실행
@@ -87,17 +90,19 @@ const Adminpage: React.FC = () => {
             }
           })
           .catch((error) => {
-            console.error("❌ QR 상태 가져오기 실패:", error);
+            if(error.response?.status === 404){
+                console.warn(`QR 정보 없음 (match_progress 미생성 상태) → matchId: ${currentMatchId}`);
+            }else{
+                console.error("❌ QR 상태 가져오기 실패:", error);
+            }
           });
       }, [matches, currentIndex]); 
 
     //✅ WebSocket 연결
     useEffect(() => {
-        let stompClient: Client;
-
         const runWebSocket = () => {
             const socket = new SockJS(`${baseURL}/ws`);
-            stompClient = new Client({
+            const client = new Client({
                 webSocketFactory: () => socket,
                 reconnectDelay: 5000,
                 onConnect: () => {
@@ -105,7 +110,7 @@ const Adminpage: React.FC = () => {
                     setIsReconnected(true);
     
                     //🔴 서버에서 점수 받기
-                    stompClient.subscribe("/topic/messages", (message) => {
+                    client.subscribe("/topic/messages", (message) => {
                         try{
                             const parsed = JSON.parse(message.body);
                             console.log("✅ 받은 점수 전체 메시지:", parsed);
@@ -193,12 +198,13 @@ const Adminpage: React.FC = () => {
                 onWebSocketError: (event) => console.error("❌ WebSocket 에러:", event)
             });
     
-            stompClient.activate();
+            stompClientRef.current = client;
+            client.activate();
         };
         runWebSocket();
 
         return () => {
-            if (stompClient) stompClient.deactivate();
+            stompClientRef.current?.deactivate();
           };
     }, []);
 
@@ -230,53 +236,63 @@ const Adminpage: React.FC = () => {
 
     //✅ 새로고침 시 경기목록+점수+선수정보 가져오기
     const fetchInitialData = async() => {
+        console.log("🔥 fetchInitialData(새로고침) 시작됨");
+
         try{
-            //🔴 전체 경기 목록 가져오기
+            //❤️ 전체 경기 목록 가져오기
             const matchesResponse = await axios.get(`${baseURL}/api/matches`);
             const matches = matchesResponse.data;
-            setMatches(matches);
 
+            setMatches(matches);
+            
             if(matches.length === 0){
                 console.warn("❌ 경기가 없습니다.");
                 return;
             }
 
-            //🔴 첫 번째 경기로 currentIndex 0 설정
-            const firstMatchId = matches[0].id;
-            setCurrentIndex(0);
+            //❤️ 현재 진행중인 matchId를 서버로부터 가져오기
+            const progressResponse = await axios.get(`${baseURL}/api/progress`);
+            const currentMatchId = progressResponse.data?.matchId;
 
-            //🔴 현재 matchId로 점수 가져오기(경기에 맞는 점수)
-            const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`,{
-                params: {matchId: firstMatchId},
-            });
+            if (!currentMatchId) {
+                console.warn("❌ 서버에 저장된 현재 matchId가 없습니다.");
+                setCurrentIndex(0);
+                return;
+            }
+
+            //❤️ matchId로 currentIndex(현재경기) 적용
+            const index = matches.findIndex((m: Match) => m.id === currentMatchId);
+            if (index === -1) {
+            console.warn("❌ matchId에 해당하는 경기 없음. index fallback 0.");
+            setCurrentIndex(0);
+            return;
+            }
+
+            setCurrentIndex(index);
+
+            //❤️ 해당 matchId로 점수 및 심판 불러오기
+            const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`, {
+                params: { matchId: currentMatchId },
+              });
             const roundScoresFromServer = scoresResponse.data;
 
-            //🔴 현재 matchId로 심판 목록 가져오기(경기에 맞는 심판)
+            //❤️ 현재 matchId로 심판 목록 가져오기(경기에 맞는 심판)
             const judgesResponse = await axios.get(`${baseURL}/api/judges/current`, {
-                params: {matchId: firstMatchId},
+                params: {matchId: currentMatchId},
             });
             const judgeList = judgesResponse.data;
 
             console.log("✅ 초기 로딩: matches:", matches);
+            console.log("✅ 현재 matchId:", currentMatchId);
             console.log("✅ 초기 로딩: roundScores:", roundScoresFromServer);
             console.log("✅ 초기 로딩: judgeList:", judgeList);
-
-            const mergedRoundScores = roundScoresFromServer.map((round: any) => ({
-                roundId: round.roundId,
-                roundNumber: round.roundNumber,
-                judges: judgeList.map((judge: any) => ({
-                  judgeName: judge.name,
-                  red: null,
-                  blue: null,
-                  submitted: false,
-                  isConnected: judge.connected,
-                })),
-              }));
           
-              setRoundScores(mergedRoundScores);
-              setScoreStatus("⏳ 점수 대기 중...");
-        } catch (error) {
-            console.error("❌ 초기 데이터 로딩 실패:", error);
+            setRoundScores(roundScoresFromServer);
+            setScoreStatus("⏳ 점수 대기 중...");
+        } catch (error:any) {
+            console.error("❌ fetchInitialData 실패", error);
+            console.error("🔍 상태코드:", error.response?.status);
+            console.error("🔍 응답내용:", error.response?.data);
         }
     };
 
@@ -386,7 +402,7 @@ const Adminpage: React.FC = () => {
               const roundList = roundsRes.data;
               const judgeList = judgesRes.data;
 
-              console.log("handlenext에서의 judgelist: ", judgeList);
+              console.log("🧪 judgeList:", judgeList);
       
               const nextIndex = allMatches.findIndex((m: Match) => m.id === nextMatchId);
               if (nextIndex === -1) {
@@ -400,22 +416,33 @@ const Adminpage: React.FC = () => {
                 judges: judgeList.length > 0
                         ? judgeList.map((judge: any) => ({
                             judgeName: judge.name,
-                            red: null,
-                            blue: null,
-                            submitted: false,
+                            red: judge.red ?? null,
+                            blue: judge.blue ?? null,
+                            submitted: judge.submitted ?? false,
+                            isConnected: judge.connected ?? false,
                         }))
                         : [],
                 }));
 
-      
               setRoundScores(roundScoresWithJudges);
-
               setMatches(allMatches);
               setCurrentIndex(nextIndex);
-      
               setCurrentRoundIndex(0);
               setScoreStatus("⏳ 점수 대기 중...");
               setIsReconnected(true);
+
+              //🔴 심판에게 다음 경기 정보 전송
+              const stompClient = stompClientRef.current;
+              console.log("🧪 stompClient 상태 확인:", stompClient);
+              if(stompClient?.connected){
+                const nextMatch = allMatches[nextIndex];
+                stompClient.publish({
+                    destination: "/topic/next-match",
+                    body: JSON.stringify(nextMatch),
+                })
+                console.log("📡 심판에게 next-match 메시지 전송:", nextMatch);
+                
+              }
             }
           } else {
             alert("❌ 다음 경기로 이동 실패");

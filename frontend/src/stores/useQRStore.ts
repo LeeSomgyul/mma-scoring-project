@@ -16,6 +16,13 @@ interface QRStoreState {
 
   isFileUploaded: boolean;
   setIsFileUploaded: (val: boolean) => void;
+
+  isHydrated: boolean;
+  setIsHydrated: (val: boolean) => void;
+
+  judgeQRList: { name: string; deviceId: string }[];
+  setJudgeQRList: (list: { name: string; deviceId: string }[]) => void;
+
 }
 
 export const useQRStore = create<QRStoreState>()(
@@ -35,9 +42,20 @@ export const useQRStore = create<QRStoreState>()(
 
       isFileUploaded: false,
       setIsFileUploaded: (val) => set({ isFileUploaded: val }),
+
+      isHydrated: false,
+      setIsHydrated: (val) => set({ isHydrated: val }),
+
+      judgeQRList: [],
+      setJudgeQRList: (list) => set({ judgeQRList: list }),
     }),
     {
       name: 'qr-store',
+      onRehydrateStorage: (state) => {
+        return () => {
+          state?.setIsHydrated(true); // ✅ 정확한 setter 호출
+        };
+      }
     }
   )
 );

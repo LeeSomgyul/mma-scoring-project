@@ -21,23 +21,6 @@ public class MatchesController {
     private final ExcelService excelService;
     private final MatchesRepository matchesRepository;
 
-    //✅ 엑셀 파일 업로드
-    @PostMapping("/upload")
-    public ResponseEntity<List<String>> uploadExcel(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("sheet") int userSheetNumber){
-
-        System.out.println("📥 업로드 받은 파일: " + file.getOriginalFilename() + ", sheet: " + userSheetNumber);
-
-        try{
-            List<String> resultLog = excelService.saveMatchesFromExcel(file, userSheetNumber);
-            return ResponseEntity.ok(resultLog);
-        }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(List.of("❌ 엑셀 업로드 실패: " + e.getMessage()));
-        }
-    }
-
     //✅ 엑셀 파일 불러오기(경기 목록 조회)
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllMatches(){
@@ -65,5 +48,22 @@ public class MatchesController {
                     return matchInfo;
         }).toList();
         return ResponseEntity.ok(matchList);
+    }
+
+    //✅ 엑셀 파일 업로드
+    @PostMapping("/upload")
+    public ResponseEntity<List<String>> uploadExcel(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("sheet") int userSheetNumber){
+
+        System.out.println("📥 업로드 받은 파일: " + file.getOriginalFilename() + ", sheet: " + userSheetNumber);
+
+        try{
+            List<String> resultLog = excelService.saveMatchesFromExcel(file, userSheetNumber);
+            return ResponseEntity.ok(resultLog);
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(List.of("❌ 엑셀 업로드 실패: " + e.getMessage()));
+        }
     }
 }

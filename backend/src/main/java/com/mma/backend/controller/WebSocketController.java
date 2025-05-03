@@ -107,4 +107,37 @@ public class WebSocketController {
             log.error("❌ 수정 처리 중 오류 발생", e);
         }
     }
+
+    @MessageMapping("/join")
+    public void handleJoinMessage(String message) {
+        try {
+            Map<String, Object> data = objectMapper.readValue(message, Map.class);
+
+            String judgeName = data.get("judgeName").toString();
+            String deviceId = data.get("deviceId").toString();
+            Long matchId = Long.parseLong(data.get("matchId").toString());
+
+            // ✅ judge 접속 처리 (DB 또는 메모리 상태 업데이트 등)
+            Judges judge = judgesRepository.findByDeviceId(deviceId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 judge를 찾을 수 없습니다."));
+
+            // ✅ connected 상태 true로 업데이트 (DB에 저장하는 로직이 있으면 여기에)
+            judge.setConnected(true); // ← DB 컬럼이 있다면 반영
+            judgesRepository.save(judge);
+
+            // ✅ 본부에 접속 메시지 전송
+            Map<String, Object> joinedMessage = Map.of(
+                    "status", "JOINED",
+                    "judgeName", judgeName,
+                    "matchId", matchId
+            );
+
+            webSocketSender.sendMessage(joinedMessage);
+
+            log.info("✅ JOINED 메시지 처리 완료: {}", joinedMessage);
+        } catch (Exception e) {
+            log.error("❌ JOINED 메시지 처리 중 오류", e);
+        }
+    }
+
 }

@@ -27,6 +27,10 @@ public class WebSocketSender {
         messagingTemplate.convertAndSend("/topic/errors", Map.of("error", errorMessage));
     }
 
+    public void sendMessage(Map<String, Object> payload) {
+        messagingTemplate.convertAndSend("/topic/messages", payload);
+    }
+
     //✅ 다음 경기 정보를 /judge에 전달하는 메서드
     public void sendNextMatch(MatchProgress nextProgress) {
         try{
