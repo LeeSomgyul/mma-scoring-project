@@ -12,7 +12,6 @@ public interface JudgesRepository extends JpaRepository<Judges, Long> {
     Optional<Judges> findByDeviceId(String deviceId);
     int countByIsConnectedTrue();
     List<Judges> findByMatch_Id(Long matchId);
-    List<Judges> findByIsConnectedTrueAndMatch_Id(Long matchId);
     List<Judges> findByIsConnectedTrue();
     Optional<Judges> findByDeviceIdAndMatch_Id(String deviceId, Long matchId);
 }
