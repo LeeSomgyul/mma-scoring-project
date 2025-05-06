@@ -6,6 +6,7 @@ import { Client } from "@stomp/stompjs";
 import * as XLSX from "xlsx";
 import QRCode from "react-qr-code";
 import { motion, AnimatePresence } from "framer-motion";
+import BackgroundLayout from "../components/BackgroundLayout";
 
 //✅ zustand store import
 import { useMatchStore } from "../stores/useMatchStore";
@@ -15,7 +16,7 @@ import type { RoundScore, JudgeScore } from "../stores/useScoreStore";
 import type { Match } from "../stores/useMatchStore";
 
 //✅ 아이콘
-import { ChevronDown } from "lucide-react";
+import { ChevronDown,  QrCode, FolderPen, SquareX } from "lucide-react";
 
 
 const Adminpage: React.FC = () => {
@@ -145,7 +146,6 @@ const Adminpage: React.FC = () => {
                                                 : j
                                         );
                                         if (!judgeExists) {
-                                            // 새로운 심판으로 추가
                                             updatedJudges.push({
                                                 judgeName: parsed.judgeName,
                                                 red: null,
@@ -156,8 +156,6 @@ const Adminpage: React.FC = () => {
                                         }
                                         return { ...round, judges: updatedJudges };
                                     });
-                            
-                                    console.log("📦 업데이트된 상태:", newScores);
                                     return newScores;
                             });
                             }
@@ -232,7 +230,6 @@ const Adminpage: React.FC = () => {
           !initializedOnceRef.current
         ) {
           const currentMatch = matches[currentIndex];
-          console.log("matchId:", currentMatch.id);
           //❤️1. 라운드 정보 가져오기
           axios.get(`${baseURL}/api/rounds/match/${currentMatch.id}`)
             .then((roundRes) => {
@@ -242,7 +239,6 @@ const Adminpage: React.FC = () => {
                 params: { matchId: currentMatch.id },
               }).then((judgeRes) => {
                 const judgeList = judgeRes.data;
-                console.log("💬 judgeList 상태 확인:", judgeList);
                 //❤️3. 라운드별 상태 초기화 (심판 목록 포함)
                 const initialRoundScores: RoundScore[] = roundList.map((round: any) => ({
                   roundId: round.id,
@@ -577,12 +573,24 @@ const Adminpage: React.FC = () => {
 
     const renderFileUploadSection = () => (
         <>
-            <button
-                onClick={handleModalOpen}
-                className="bg-white text-black px-[65px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
-            >
-                {isFileUploaded ? "파일 수정" : "파일 업로드"}
-            </button>
+            {isFileUploaded ? (
+                // 파일 수정 버튼
+                <button
+                    onClick={handleModalOpen}
+                    className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20"
+                    title="파일 수정"
+                >
+                    <FolderPen size={24} className="w-16 h-16 text-white" />
+                </button>
+                ) : (
+                // 파일 업로드 버튼
+                <button
+                    onClick={handleModalOpen}
+                    className="bg-white text-black px-[65px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
+                >
+                    파일 업로드
+                </button>
+            )}
 
             <AnimatePresence>
                 {isModalOpen && (
@@ -649,89 +657,81 @@ const Adminpage: React.FC = () => {
             </AnimatePresence>
         </>
     );
-    //✅ 엑셀 등록하기 전이라 경기 정보가 없을 때
+    //✅ 엑셀 업로드 전 화면 
     if(matches.length === 0){
         return(
-            <div 
-                className="relative flex flex-col items-center justify-center w-screen h-screen overflow-hidden bg-center bg-no-repeat bg-cover touch-none"
-                style={{backgroundImage: `url('/images/bg_main.jpg')`}}
-            >
-                {/* 로고 */}
-                <div className='absolute top-7 left-6'>
-                    <img
-                        src='/images/sub_logo.svg'
-                        alt='메인 로고'
-                        className='w-40 h-auto'
-                    />
-                </div>
-
+            <BackgroundLayout>
                 {/* 중앙 글자 */}
                 <div
-                    className="px-4 mb-6 text-[25px] font-sans font-bold text-center text-white"
+                    className="text-white text-[25px] font-bold text-center px-4"
                     style={{
                         textShadow: "2px 2px 4px rgba(0, 0, 0, 0.5)"
                     }}    
                 >
                     아직 엑셀 파일을 불러오지 않았습니다.<br/>
                     경기 정보를 업로드해주세요!
-                </div>
-                    {renderFileUploadSection()}
-                </div>
-                );
-            }
-            return(
-                <div>
-                    <div>
-                        {isFileUploaded && currentIndex === 0 && (
-                            <span>{renderFileUploadSection()}</span>
-                        )}
+                    <div className="mt-6">
+                        {renderFileUploadSection()}
                     </div>
-                    <div>
-                        <span>{current.matchNumber}경기</span>
-                        <span>{current.division}</span>
-                    </div>
-                    <div>
-                        {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
-                        </div>
-            {roundScores.map((round, index) => {
-                const redSum = round.judges
-                .filter(j => j.submitted)
-                .reduce((acc, j) => acc + (j.red ?? 0), 0);
-            
-                const blueSum = round.judges
+                </div>
+            </BackgroundLayout>
+        );
+    }
+    return(
+        <BackgroundLayout>
+            {/* 경기 정보 */}
+            <div>
+                <span>{current.matchNumber}경기</span>
+                <span>{current.division}</span>
+            </div>
+
+            {/* 라운드 별 점수 */}
+            <div>
+                {current.redName}({current.redGym}) | {current.blueName}({current.blueGym})
+            </div>
+                {roundScores.map((round, index) => {
+                    const redSum = round.judges
                     .filter(j => j.submitted)
-                    .reduce((acc, j) => acc + (j.blue ?? 0), 0);
+                    .reduce((acc, j) => acc + (j.red ?? 0), 0);
+                
+                    const blueSum = round.judges
+                        .filter(j => j.submitted)
+                        .reduce((acc, j) => acc + (j.blue ?? 0), 0);
 
-                const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);      
+                    const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);      
 
-                return(
-                    <div key={round.roundId}>
-                        <div>
-                            {round.roundNumber}라운드: {" "}
-                            {allSubmitted ? `${redSum}점 : ${blueSum}점` : "-점 : -점"}
+                    return(
+                        <div key={round.roundId}>
+                            <div>
+                                {round.roundNumber}라운드: {" "}
+                                {allSubmitted ? `${redSum}점 : ${blueSum}점` : "-점 : -점"}
+                            </div>
+                            <div>
+                                {round.judges.length > 0 ? (
+                                    round.judges.map((judge, idx) => (
+                                        <span key={idx}>
+                                            {judge.isConnected
+                                                ? `${judge.judgeName} ${judge.submitted ? "✅" : "⌛"}`
+                                                : "🙋 미입장"
+                                            }
+                                        </span>
+                                    ))
+                                ) : (
+                                        <div>🏃입장 대기중...</div>
+                                )}
+                                    </div>
                         </div>
-                        <div>
-                            {round.judges.length > 0 ? (
-                                round.judges.map((judge, idx) => (
-                                    <span key={idx}>
-                                        {judge.isConnected
-                                            ? `${judge.judgeName} ${judge.submitted ? "✅" : "⌛"}`
-                                            : "🙋 미입장"
-                                        }
-                                    </span>
-                                ))
-                            ) : (
-                                    <div>🏃입장 대기중...</div>
-                            )}
-                             </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+
+            {/* 합계 */}            
             <div>
                 <span>합계: </span>
                 <span>{redTotal}점</span>
                 <span>{blueTotal}점</span>
             </div>
+       
+            {/* 다음경기 버튼 */}  
             <button onClick={() => {
                 if(!isAllScoresSubmitted()){
                     const proceed = confirm("⚠️ 아직 모든 점수가 입력되지 않았습니다. KO 등 경기 종료로 다음 경기로 이동하시겠습니까?");
@@ -741,102 +741,175 @@ const Adminpage: React.FC = () => {
             }}>
                 다음 경기👉
             </button>
-            <button onClick={handleEnd}>
-                경기 종료
-            </button>
 
-            {/* 아직 QR 생성 안했을 때 */}
-            {showQRButton && !isPasswordSet && (
-                <div>
-                    <button onClick={() => setShowPasswordModal(true)}>📱 심판용 QR 코드 생성</button>   
-                    </div>
-            )} 
+            <div className="fixed z-30 flex items-center space-x-4 top-9 right-6">
+                {/* 파일 업로드/수정 버튼 (왼쪽) */}
+                {isFileUploaded && currentIndex === 0 && renderFileUploadSection()}
+
+                {/* 아직 QR 생성 안했을 때 */}
+                {showQRButton && !isPasswordSet && (
+                    <button 
+                        onClick={() => setShowPasswordModal(true)}
+                        className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20"
+                        title="QR 코드 생성"    
+                    >
+                        <QrCode className="text-white w-14 h-14" />
+                    </button>   
+                )} 
+
+                {/* QR 닫았지만 생성된 상태라면 '다시 보기' */}
+                {!qrGenerated && isPasswordSet && (
+                <button
+                    onClick={() => setQrGenerated(true)}
+                    className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20"
+                    title="QR 코드 다시 보기"
+                >
+                    <QrCode className="text-white w-14 h-14" />
+                </button>
+                )}
+
+                {/* 경기 종료 */}
+                <button
+                    onClick={handleEnd}
+                    className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20"
+                    title="경기 종료"
+                >
+                    <SquareX className="text-white w-14 h-14" />
+                </button>
+            </div>
             
-            {showPasswordModal && (
-                <div>
-                    <div>심판 비밀번호 설정</div>
+        
+            <AnimatePresence>
+                {showPasswordModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.3 }}
+                            className="bg-white p-8 rounded-2xl shadow-2xl w-[90%] max-w-md text-center"
+                        >
+                            {/* 상단 타이틀 */}
+                            <div className="mb-6 text-2xl font-bold">심판 비밀번호 설정</div>
 
-                    {/* 심판 수 입력 */}
-                    <label>심판 수: </label>
-                    <input
-                        type="number"
-                        value={judgeCount ?? ""}
-                        onChange={(e) => {
-                            const count = Number(e.target.value);
-                            setJudgeCount(count);
-                            setJudgeName(Array(count).fill(""));
-                        }}
-                        placeholder="심판 수 입력"
-                    />
-
-                    {/* 심판 이름 입력 */}
-                    {judgeName.length > 0 && (
-                        <div>
-                            {judgeName.map((name, index) => (
+                            {/* 심판 수 입력 */}
+                            <div className="mb-4 text-left">
+                                <label className="block mb-1 text-sm font-medium">심판 수: </label>
                                 <input
-                                    key={index}
-                                    type="text"
-                                    value={name}
+                                    type="number"
+                                    value={judgeCount ?? ""}
                                     onChange={(e) => {
-                                        const newNames = [...judgeName];
-                                        newNames[index] = e.target.value;
-                                        setJudgeName(newNames);
+                                        const count = Number(e.target.value);
+                                        setJudgeCount(count);
+                                        setJudgeName(Array(count).fill(""));
                                     }}
-                                    placeholder="심판 이름을 입력해 주세요."
+                                    placeholder="심판 수 입력"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                                 />
-                            ))}
-                        </div>
-                    )}
+                            </div>
 
-                    {/* 공통 비밀번호 입력 */}
-                    <label>비밀번호(4자리 숫자): </label>
-                    <input
-                        type="text"
-                        value={password}
-                        onChange={(e) => {
-                            const input = e.target.value;
-                            if(/^\d{0,4}$/.test(input)){
-                                setPassword(input);
-                            }
-                        }}
-                        placeholder="숫자 4자리 입력"
-                        maxLength={4}
-                    />
+                            {/* 심판 이름 입력 */}
+                            {judgeName.length > 0 && (
+                                <div className="mb-4 space-y-2 text-left">
+                                    {judgeName.map((name, index) => (
+                                        <input
+                                            key={index}
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => {
+                                                const newNames = [...judgeName];
+                                                newNames[index] = e.target.value;
+                                                setJudgeName(newNames);
+                                            }}
+                                            placeholder="심판 이름을 입력해 주세요."
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                        />
+                                    ))}
+                                </div>
+                            )}
 
-                    {/* 저장 버튼 */}
-                    <button onClick={handleSavePasswordAndGenerateQRs}>비밀번호 등록 및 QR 생성</button>
+                            {/* 공통 비밀번호 입력 */}
+                            <div className="mb-4 text-left">
+                                <label className="block mb-1 text-sm font-medium">비밀번호(4자리 숫자): </label>
+                                <input
+                                    type="text"
+                                    value={password}
+                                    onChange={(e) => {
+                                        const input = e.target.value;
+                                        if(/^\d{0,4}$/.test(input)){
+                                            setPassword(input);
+                                        }
+                                    }}
+                                    placeholder="숫자 4자리 입력"
+                                    maxLength={4}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                />
+                            </div>
+
+                            {/* 저장 버튼 */}
+                            <div className="flex justify-center mt-6 space-x-4">
+                                <button 
+                                    onClick={handleSavePasswordAndGenerateQRs}
+                                        className="px-6 py-2 font-bold text-white transition-all bg-blue-500 rounded-full hover:bg-blue-600"
+                                >
+                                    QR 생성
+                                </button>
+                                <button
+                                    onClick={() => setShowPasswordModal(false)}
+                                    className="px-6 py-2 font-bold text-gray-700 transition-all bg-white border border-gray-300 rounded-full hover:bg-gray-100"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        </motion.div>
                     </div>
-            )}
+                )}
+            </AnimatePresence>
 
             {/*QR 생성해서 보여주고 있을 때 */}
-            {qrGenerated && (
-                <div>
-                    {judgeQRList.map((judge, index) => {
-                    const qrUrl = `${window.location.origin}/judge?accessCode=${accessCode}&deviceId=${judge.deviceId}`;
-                    
-                    console.log(`✅ [${judge.name}] QR URL: ${qrUrl}`);
-                
-                    return (
-                        <div key={index}>
-                        <div>{judge.name}</div>
-                        <QRCode 
-                            value={qrUrl}
-                            size={180}
-                        />
-                        </div>
-                    );
-                    })}
-                <button onClick={() => setQrGenerated(false)}>❌ QR 코드 닫기</button>
-              </div>
-            )}
+            <AnimatePresence>
+                {qrGenerated && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.3 }}
+                            className="bg-white p-8 rounded-2xl shadow-2xl w-[90%] max-w-lg text-center overflow-y-auto max-h-[90vh]"
+                        >
+                            {/* 상단 타이틀 */}
+                            <div className="mb-6 text-2xl font-bold">심판용 QR 코드</div>
+                        
+                            {/* QR 코드 목록 */}
+                            <div className="grid items-center justify-center grid-cols-2 gap-6">
+                                {judgeQRList.map((judge, index) => {
+                                    const qrUrl = `${window.location.origin}/judge?accessCode=${accessCode}&deviceId=${judge.deviceId}`;
+                                    
+                                    console.log(`✅ [${judge.name}] QR URL: ${qrUrl}`);
+                                
+                                    return (
+                                        <div key={index} className="flex flex-col items-center space-y-2">
+                                        <div className="text-sm font-medium">{judge.name}</div>
+                                        <QRCode value={qrUrl} size={180}/>
+                                        </div>
+                                    );
+                                })}
+                            </div>
 
-            {/* QR 닫았지만 생성된 상태라면 '다시 보기' */}
-            {!qrGenerated && isPasswordSet && (
-            <button onClick={() => setQrGenerated(true)}>
-                🔁 QR 코드 다시 보기
-            </button>
-            )}
-            </div>
+                            {/* 닫기 버튼 */}
+                            <div className="mt-6">
+                                <button
+                                    onClick={() => setQrGenerated(false)}
+                                    className="px-6 py-2 font-bold text-gray-700 transition-all bg-white border border-gray-300 rounded-full hover:bg-gray-100"
+                                >
+                                    ❌ QR 코드 닫기
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </BackgroundLayout>
     );
 };
 
