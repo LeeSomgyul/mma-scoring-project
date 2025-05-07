@@ -57,25 +57,18 @@ public class MatchProgressService {
                 .orElseThrow(() -> new NoSuchElementException("진행 중인 경기 정보가 없습니다."));
     }
 
-    @Transactional(readOnly = true)
-    public Optional<MatchProgress> getCurrentProgressOptional() {
-        return matchProgressRepository.findCurrentProgress();
-    }
-
     //✅ 경기 종료 처리
     @Transactional
     public boolean endMatch(){
         Optional<MatchProgress> optional = matchProgressRepository.findCurrentProgress();
 
-        if(optional.isEmpty()){
-            return false;
-        }
+        optional.ifPresent(progress -> {
+            progress.setIsEndOfMatch(true);
+            progress.setIsLocked(true);
+            matchProgressRepository.save(progress);
+        });
 
-        MatchProgress progress = optional.get();
-        progress.setIsEndOfMatch(true);
-        progress.setIsLocked(true);
-        matchProgressRepository.save(progress);
-
+        //🔴 모든 DB 초기화
         matchProgressRepository.deleteAllInBatch();
         scoresRepository.deleteAllInBatch();
         judgesRepository.deleteAllInBatch();

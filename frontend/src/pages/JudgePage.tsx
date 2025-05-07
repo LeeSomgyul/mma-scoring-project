@@ -5,11 +5,15 @@ import axios from "axios";
 import { Client } from "@stomp/stompjs";
 import { useSearchParams } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid'; 
+import BackgroundLayout from "../components/BackgroundLayout";
 
 import { useJudgeStore } from "../stores/useJudgeStore";
 import { useJudgeScoreStore } from "../stores/useJudgeScoreStore";
 import { useJudgeMatchStore } from "../stores/useJudgeMatchStore";
 import { useMatchStore } from "../stores/useMatchStore";
+
+//✅ 아이콘
+import {SquareX} from "lucide-react";
 
 interface MyScore {
   red: string;
@@ -29,14 +33,13 @@ const getOrCreateDeviceId = (): string => {
 
 const JudgePage: React.FC = () => {
   //✅ zustand 상태 연결
-  const {judgeName,setJudgeName,deviceId,setDeviceId,verified,setVerified} = useJudgeStore();
+  const {judgeName,setJudgeName,deviceId,setDeviceId,verified,setVerified, isHydrated} = useJudgeStore();
   const {scores, setScores, submitted, setSubmitted, editing, setEditing, currentRoundIndex, setCurrentRoundIndex} = useJudgeScoreStore();
   const { matchInfo, setMatchInfo } = useJudgeMatchStore();
   const { matches, setMatches, currentIndex, setCurrentIndex } = useMatchStore();
   //✅ 일반
   const [stompClient, setStompClient] = useState<Client | null>(null);
   const [inputPassword, setInputPassword] = useState<string>("");
-  const [isVerified, setIsVerified] = useState(false);
   const [searchParams] = useSearchParams();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastFetchedMatchId, setLastFetchedMatchId] = useState<number | null>(null);
@@ -80,7 +83,7 @@ const JudgePage: React.FC = () => {
 
   //✅ localStorage에서 복원 -> 서버에서 복원 
   useEffect(() => {
-    if(!isVerified || !matchInfo || !isInitialLoad) return;
+    if(!verified || !matchInfo || !isInitialLoad) return;
 
     if(lastFetchedMatchId === matchInfo.id) return;
 
@@ -133,7 +136,7 @@ const JudgePage: React.FC = () => {
       .finally(() => {
         setIsInitialLoad(false);
       });
-  },[isVerified, matchInfo]);
+  },[verified, matchInfo]);
 
   //✅ 해당 브라우저 페이지가 처음 QR로 입장한건지 감지하기 위한 코드
   useEffect(() => {
@@ -380,7 +383,6 @@ const JudgePage: React.FC = () => {
 
         alert("✅ 인증 성공!");
 
-        setIsVerified(true);
         setVerified(true);
         setDeviceId(deviceId);
         setJudgeName(response.data.judgeName);
@@ -544,61 +546,176 @@ const JudgePage: React.FC = () => {
     navigate("/judge-end");
   };
 
+  //✅ 사용자 정의 폰트 크기
+  const headingFontSize = 45;
+  const descFontSize = 25;
+  const roundFontSize = 45;
+  const scoreFontSize = 32;
+  const rowHeight = 90;
+  
+
+  if (!isHydrated) {
+    return (
+      <BackgroundLayout>
+        <div className="text-xl text-center text-white">⏳ 로딩 중...</div>
+      </BackgroundLayout>
+    );
+  }
+
   return (
-    <div>
-      {!isVerified ? (
-        <div>
-          <h3>🧑‍⚖️ 심판 입장</h3>
-          <input
-            type="text"
-            placeholder="비밀번호 입력 (숫자 4자리)"
-            value={inputPassword}
-            onChange={(e) => setInputPassword(e.target.value)}
-            maxLength={4}
-          />
-          <button onClick={handleVerify}>입장하기</button>
+    <BackgroundLayout>
+      <div className="flex flex-col items-center justify-center w-full h-screen">
+        {/* 로그인 화면 */}
+        {!verified ? (
+          <div className="text-center text-white" style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
+            {/* 타이틀 */}
+            <h2
+              className="mb-4 font-bold"
+              style={{ fontSize: `${headingFontSize}px` }}
+            >
+              심판 입장
+            </h2>
+            
+            {/* 설명 */}
+            <p
+              className="mb-6 font-medium "
+              style={{ fontSize: `${descFontSize}px` }}
+            >
+              본부에서 전달받은 4자리 비밀번호를 입력해주세요.
+            </p>
+            {/* 입력창 */}
+            <input
+              type="text"
+              placeholder="비밀번호 입력 (숫자 4자리)"
+              value={inputPassword}
+              onChange={(e) => setInputPassword(e.target.value)}
+              maxLength={4}
+              className="block w-full max-w-xs px-4 py-3 mx-auto mb-4 text-lg text-black rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+
+            {/* 입장하기 버튼 */}
+            <button
+              onClick={handleVerify}
+              className="block w-full max-w-xs px-6 py-3 mx-auto font-bold text-white text-lg transition-all rounded-full bg-gradient-to-r from-red-500 to-blue-500 shadow-[0_4px_10px_rgba(0,0,0,0.3)] active:scale-95"
+            >
+              입장하기
+            </button>
           </div>
-      ) : matchInfo ? (
-        <>
-          <div>{matchInfo.matchNumber}경기 {matchInfo.division}</div>
-          <div>
-            <span>{matchInfo.redName}({matchInfo.redGym})</span>
-            <span>{matchInfo.blueName}({matchInfo.blueGym})</span>
+        ) : matchInfo ? (
+          //점수 입력 화면
+          <>
+            {/* 중앙 상단 경기 정보 */}
+            <div className="mt-3 mb-10 text-center">
+              <span
+                      className="font-sans font-bold text-white"
+                      style={{
+                          fontSize: `${80}px`,
+                          textShadow: `
+                              -1px 0px rgba(0, 0, 0, 0.8),
+                              1px 0px rgba(0, 0, 0, 0.8),
+                              0px -1px rgba(0, 0, 0, 0.8),
+                              0px 1px rgba(0, 0, 0, 0.8)
+                          `,
+                      }}
+              >
+                {matchInfo.matchNumber}경기&nbsp;&nbsp;{matchInfo.division}
+              </span>
             </div>
-            <div>
-            {Array.from({ length: matchInfo.roundCount }, (_, i) => (
-              <div key={i}>
-                <span>{i + 1}라운드</span>
-                <input
-                  type="number"
-                  value={scores[i].red}
-                  onChange={(e) => handleScoreChange(i, "red", e.target.value)}
-                  disabled={!editing[i]}
-                />
-                <input
-                  type="number"
-                  value={scores[i].blue}
-                  onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
-                  disabled={!editing[i]}
-                />
-                {submitted[i] && !editing[i] ? (
-                  <button onClick={() => handleEdit(i)}>수정</button>
-                ) : (
-                  <button onClick={() => handleSubmit(i)}>
-                    {submitted[i] ? "재전송" : "전송"}
-                  </button>
-                )}
+            
+            <div className="w-full max-w-5xl mx-auto mt-10 overflow-hidden text-base rounded shadow-md">
+              {/* 헤더 */}
+              <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold text-white">
+                <div className="col-span-1 bg-transparent"></div>
+                <div
+                  className="flex items-center justify-center bg-red-600 border border-gray-300"
+                  style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
+                >
+                  {matchInfo.redName}({matchInfo.redGym})
                 </div>
-            ))}
-          </div>
-          <button onClick={handleOut}>
-            경기종료
-          </button>
-        </>
-        ) : (
-          <div>⏳ 경기 정보를 불러오는 중입니다...</div>
-        )}
-      </div>
+                <div
+                  className="flex items-center justify-center bg-blue-600 border border-gray-300"
+                  style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
+                >
+                  {matchInfo.blueName}({matchInfo.blueGym})
+                </div>
+                <div className="col-span-1 bg-transparent"></div>
+              </div>
+
+              {/* 라운드 별 점수 */}
+              <div
+                className="w-full max-w-5xl mx-auto mt-0 overflow-y-auto text-base rounded shadow-md"
+                style={{ maxHeight: "365px" ,scrollbarWidth: "none",msOverflowStyle: "none", }}
+              >
+              {Array.from({ length: matchInfo.roundCount }, (_, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300"
+                >
+                  {/* 라운드 번호 */}
+                  <div
+                    className="flex items-center justify-center font-bold bg-gray-100 border border-gray-300"
+                    style={{ fontSize: `${roundFontSize}px`, height: "90px" }}
+                  >
+                    {i + 1}R
+                  </div>
+
+                  {/* RED 점수 입력 */}
+                  <div className="flex items-center justify-center bg-white border border-gray-300">
+                    <input
+                      type="number"
+                      value={scores[i]?.red ?? ""}
+                      onChange={(e) => handleScoreChange(i, "red", e.target.value)}
+                      disabled={!editing[i]}
+                      className="w-[80px] h-[60px] text-center font-normal bg-transparent border-none outline-none focus:ring-0"
+                      style={{ fontSize: `${roundFontSize}px`}}
+                    />
+                  </div>
+
+                  {/* BLUE 점수 입력 */}
+                  <div className="flex items-center justify-center bg-white border border-gray-300">
+                    <input
+                      type="number"
+                      value={scores[i]?.blue ?? ""}
+                      onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
+                      disabled={!editing[i]}
+                      className="w-[80px] h-[60px] text-center font-normal bg-transparent border-none outline-none focus:ring-0"
+                      style={{ fontSize: `${roundFontSize}px`}}
+                    />
+                  </div>
+
+                  {/* 제출 or 수정 버튼 */}
+                  <div
+                    onClick={() => {
+                      submitted[i] && !editing[i] ? handleEdit(i) : handleSubmit(i);
+                    }}
+                    className={`flex items-center justify-center cursor-pointer font-bold text-white transition-all
+                      ${submitted[i] && !editing[i] ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}
+                    `}
+                    style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
+                  >
+                    {submitted[i] && !editing[i] ? "수정" : submitted[i] ? "재전송" : "전송"}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+              {/* 경기 종료 */}
+              <div className="fixed z-30 flex items-center space-x-4 top-7 right-6">
+                <button
+                  onClick={handleOut}
+                  className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20 active:scale-90"
+                  title="경기 종료"
+                >
+                  <SquareX className="text-white w-14 h-14" />
+                </button>
+              </div>
+            </div>
+          </>
+          ) : (
+            <div>⏳ 경기 정보를 불러오는 중입니다...</div>
+          )}
+        </div>
+      </BackgroundLayout>
     );
 };
 

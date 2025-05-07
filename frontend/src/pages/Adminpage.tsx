@@ -45,10 +45,7 @@ const Adminpage: React.FC = () => {
     const current = matches[currentIndex];
     const navigate = useNavigate();
 
-    //✅ 폰트 크기
-    const roundFontSize = 45; // 라운드 번호 폰트 (사용자 정의)
-    const scoreFontSize = 32; // 점수 폰트 크기
-    const rowHeight = 90;
+
 
     //✅ 레드, 블루 총합 구하기
     const redTotal = roundScores.reduce((sum, round) => {
@@ -386,10 +383,6 @@ const Adminpage: React.FC = () => {
 
     //✅ 팝업창 열기 버튼
     const handleModalOpen = () => {
-        if(isFileUploaded){
-            const confirmModify = confirm("정말 파일을 수정하시겠습니까?");
-            if (!confirmModify) return;
-        }
         setIsModalOpen(true);
     };
 
@@ -401,13 +394,24 @@ const Adminpage: React.FC = () => {
     
     //✅ 다음 경기로 전환
     const handleNext = async () => {
-        const isLastMatch = currentIndex === matches.length -1;
 
+        //🔴 마지막 경기에서 버튼 누르면 
+        const isLastMatch = currentIndex === matches.length -1;
         if(isLastMatch){
             alert("⚠️ 현재 경기가 마지막 경기입니다.");
             return;
         }
+
+        //🔴 심판이 전원 입장하지 않고 버튼 누르면 
+        const allJudgesPresent = roundScores.every(round =>
+            round.judges.length > 0 && round.judges.every(judge => judge.isConnected)
+        );
         
+        if (!allJudgesPresent) {
+            alert("⚠️ 아직 입장하지 않은 심판이 있습니다. 모든 심판이 입장한 후 진행해주세요.");
+            return;
+        }
+
         const confirmNext = window.confirm("⚠️ 다음 경기로 이동하시겠습니까?");
         if (!confirmNext) return;
 
@@ -433,8 +437,6 @@ const Adminpage: React.FC = () => {
               const roundList = roundsRes.data;
               const judgeList = judgesRes.data;
 
-              console.log("🧪 judgeList:", judgeList);
-      
               const nextIndex = allMatches.findIndex((m: Match) => m.id === nextMatchId);
               if (nextIndex === -1) {
                 alert("❌ 다음 경기 ID를 찾을 수 없습니다.");
@@ -464,15 +466,12 @@ const Adminpage: React.FC = () => {
 
               //🔴 심판에게 다음 경기 정보 전송
               const stompClient = stompClientRef.current;
-              console.log("🧪 stompClient 상태 확인:", stompClient);
               if(stompClient?.connected){
                 const nextMatch = allMatches[nextIndex];
                 stompClient.publish({
                     destination: "/topic/next-match",
                     body: JSON.stringify(nextMatch),
                 })
-                console.log("📡 심판에게 next-match 메시지 전송:", nextMatch);
-                
               }
             }
           } else {
@@ -547,52 +546,40 @@ const Adminpage: React.FC = () => {
 
     //✅ DB 및 localStorage 초기화 버튼
     const  handleEnd = async () => {
-        const confirmEnd = window.confirm("⚠️ 정말 경기 데이터를 모두 초기화하시겠습니까?");
+        const confirmEnd = window.confirm("⚠️ 경기를 종료하시겠습니까? 종료 시 모든 데이터가 초기화됩니다.");
         if(!confirmEnd) return;
 
         try{
             //🔴 서버에 초기화 요청
-            const response = await axios.post(`${baseURL}/api/progress/end`);
+            await axios.post(`${baseURL}/api/progress/end`);
 
-            if(response.status === 200){
                 localStorage.removeItem("match-storage");
-                localStorage.removeItem("qr-storage");
-                localStorage.removeItem("score-storage");
+                localStorage.removeItem("qr-store");
+
                 alert("✅ 모든 경기 정보가 초기화되었습니다.");
                 navigate("/");
                 window.location.reload();
-            }
-        }catch(error:any){
-            if(error.response?.status === 400){
-                alert("❌ 아직 시작된 경기가 없습니다.");
-            } else {
-                alert("❌ 서버 오류 발생. 관리자에게 문의하세요.");
-            }
+        }catch(error){
             console.error("❌ 경기 종료 실패:", error);
+            alert("❌ 서버 오류 발생. 관리자에게 문의하세요.");
         }
     };
+
+    //✅ 폰트 크기
+    const roundFontSize = 45; // 라운드 번호 폰트 (사용자 정의)
+    const scoreFontSize = 32; // 점수 폰트 크기
+    const rowHeight = 90;
  
 
     const renderFileUploadSection = () => (
         <>
-            {isFileUploaded ? (
-                // 파일 수정 버튼
-                <button
-                    onClick={handleModalOpen}
-                    className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20 active:scale-90"
-                    title="파일 수정"
-                >
-                    <FolderPen size={24} className="w-16 h-16 text-white" />
-                </button>
-                ) : (
-                // 파일 업로드 버튼
-                <button
-                    onClick={handleModalOpen}
-                    className="bg-white text-black px-[65px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
-                >
-                    파일 업로드
-                </button>
-            )}
+            {/* 파일 업로드 버튼 */}
+            <button
+                onClick={handleModalOpen}
+                className="bg-white text-black px-[65px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
+            >
+                파일 업로드
+            </button>
 
             <AnimatePresence>
                 {isModalOpen && (
@@ -700,7 +687,7 @@ const Adminpage: React.FC = () => {
 
             <div className="w-full max-w-5xl mx-auto mt-10 overflow-hidden text-base rounded shadow-md">
                 {/* 헤더 */}
-                <div className="grid grid-cols-[0.6fr_1fr_1fr_1.2fr] text-center font-bold text-white">
+                <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold text-white">
                     <div className="col-span-1 bg-transparent"></div>
                     <div
                         className="flex items-center justify-center bg-red-600 border border-gray-300"
@@ -718,7 +705,8 @@ const Adminpage: React.FC = () => {
                 </div>
 
                 {/* 라운드 별 점수 */}
-                <div className="w-full max-w-5xl mx-auto mt-0 overflow-y-auto text-base rounded shadow-md"
+                <div 
+                    className="w-full max-w-5xl mx-auto mt-0 overflow-y-auto text-base rounded shadow-md"
                     style={{ maxHeight: "365px" ,scrollbarWidth: "none",msOverflowStyle: "none", }}
                 >
                     {roundScores.map((round, index) => {
@@ -727,7 +715,7 @@ const Adminpage: React.FC = () => {
                         const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);      
 
                         return(
-                            <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_1.2fr] text-center border border-gray-300">
+                            <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
                                 {/* 라운드 번호 */}
                                 <div 
                                     className="flex items-center justify-center font-bold bg-gray-100 border border-gray-300"
@@ -738,16 +726,20 @@ const Adminpage: React.FC = () => {
                                 
                                 {/* RED 점수 */}
                                 <div
-                                    className="flex items-center justify-center font-semibold bg-white border border-gray-300"
-                                    style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
+                                    className={`flex items-center justify-center bg-white border border-gray-300 ${
+                                        allSubmitted && redSum > blueSum ? 'font-bold' : 'font-normal'
+                                    }`}
+                                    style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
                                 >
                                     {allSubmitted ? redSum : "-"}
                                 </div>
 
                                 {/* BLUE 점수 */}
                                 <div
-                                    className="flex items-center justify-center font-semibold bg-white border border-gray-300"
-                                    style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
+                                    className={`flex items-center justify-center bg-white border border-gray-300 ${
+                                        allSubmitted && blueSum > redSum ? 'font-bold' : 'font-normal'
+                                    }`}
+                                    style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
                                 >
                                     {allSubmitted ? blueSum : "-"}
                                 </div>
@@ -801,10 +793,34 @@ const Adminpage: React.FC = () => {
                 </div>
 
                 {/* 합계 */}            
-                <div  className="grid grid-cols-[0.6fr_1fr_1fr_1.2fr] text-center font-bold border border-gray-300">
-                    <div className="flex items-center justify-center border border-gray-300 bg-lime-300" style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}>합계</div>
-                    <div className="flex items-center justify-center text-lg bg-white border border-gray-300" style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}>{redTotal}</div>
-                    <div className="flex items-center justify-center text-lg bg-white border border-gray-300" style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}>{blueTotal}</div>
+                <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold border border-gray-300">
+                    <div
+                        className="flex items-center justify-center border border-gray-300 bg-lime-300"
+                        style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
+                    >
+                        합계
+                    </div>
+
+                    {/* RED 총합 */}
+                    <div
+                        className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
+                        redTotal > blueTotal ? 'border-8 border-red-500' : ''
+                        }`}
+                        style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
+                    >
+                        {redTotal}
+                    </div>
+
+                    {/* BLUE 총합 */}
+                    <div
+                        className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
+                        blueTotal > redTotal ? 'border-8 border-red-500' : ''
+                        }`}
+                        style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
+                    >
+                        {blueTotal}
+                    </div>
+
                     <div className="bg-gray-100 border border-gray-300"></div>
                 </div>
             </div>
@@ -830,9 +846,6 @@ const Adminpage: React.FC = () => {
             </div>
             
             <div className="fixed z-30 flex items-center space-x-4 top-7 right-6">
-                {/* 파일 업로드/수정 버튼 (왼쪽) */}
-                {isFileUploaded && currentIndex === 0 && renderFileUploadSection()}
-
                 {/* 아직 QR 생성 안했을 때 */}
                 {showQRButton && !isPasswordSet && (
                     <button 
@@ -858,7 +871,7 @@ const Adminpage: React.FC = () => {
                 {/* 경기 종료 */}
                 <button
                     onClick={handleEnd}
-                    className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20"
+                    className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20 active:scale-90"
                     title="경기 종료"
                 >
                     <SquareX className="text-white w-14 h-14" />
@@ -881,7 +894,7 @@ const Adminpage: React.FC = () => {
 
                             {/* 심판 수 입력 */}
                             <div className="mb-4 text-left">
-                                <label className="block mb-1 text-sm font-medium">심판 수 (최대 4명):</label>
+                                <label className="block mb-1 text-sm font-medium">심판 수 (최대 3명):</label>
                                 <input
                                     type="text"
                                     inputMode="numeric"
@@ -901,9 +914,9 @@ const Adminpage: React.FC = () => {
                                         // 숫자가 아니거나 음수일 때 무시
                                         if (isNaN(count) || count < 0) return;
 
-                                        // 4명 초과 시 알림
-                                        if (count > 4) {
-                                            alert("심판 수는 최대 4명까지 가능합니다.");
+                                        // 3명 초과 시 알림
+                                        if (count > 3) {
+                                            alert("심판 수는 최대 3명까지 가능합니다.");
                                             return;
                                         }
 
@@ -983,20 +996,20 @@ const Adminpage: React.FC = () => {
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ duration: 0.3 }}
-                            className="bg-white p-8 rounded-2xl shadow-2xl w-[90%] max-w-lg text-center overflow-y-auto max-h-[90vh]"
+                            className="bg-white p-8 rounded-2xl shadow-2xl w-[90%] max-w-[780px] text-center overflow-y-auto max-h-[90vh]"
                         >
                             {/* 상단 타이틀 */}
                             <div className="mb-6 text-2xl font-bold">심판용 QR 코드</div>
                         
                             {/* QR 코드 목록 */}
-                            <div className="grid items-center justify-center grid-cols-2 gap-6">
+                            <div className="flex flex-wrap justify-center mx-auto gap-x-20 gap-y-8">
                                 {judgeQRList.map((judge, index) => {
                                     const qrUrl = `${window.location.origin}/judge?accessCode=${accessCode}&deviceId=${judge.deviceId}`;
                                 
                                     console.log(`✅ [${judge.name}] QR URL: ${qrUrl}`);
 
                                     return (
-                                        <div key={index} className="flex flex-col items-center space-y-2">
+                                        <div key={index} className="flex flex-col items-center space-y-2 w-[160px]">
                                         <div className="text-lg font-medium">{judge.name}</div>
                                         <QRCode value={qrUrl} size={180}/>
                                         </div>
