@@ -567,13 +567,25 @@ const Adminpage: React.FC = () => {
 
     const renderFileUploadSection = () => (
         <>
-            {/* 파일 업로드 버튼 */}
-            <button
-                onClick={handleModalOpen}
-                className="bg-white text-black px-[65px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
-            >
-                파일 업로드
-            </button>
+            {/* 버튼 영역: 파일 업로드 & 양식 다운로드 */}
+            <div className="flex flex-col items-center space-y-4">
+                {/* 파일 업로드 버튼 */}
+                <button
+                    onClick={handleModalOpen}
+                    className="bg-white text-black w-[300px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all"
+                >
+                    파일 업로드
+                </button>
+
+                {/* 양식 다운로드 버튼 */}
+                <a
+                    href="/template/mma-template.xlsx"
+                    download
+                    className="bg-white text-black w-[300px] py-[20px] text-[30px] font-bold font-sans rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.25)] active:bg-gray-200 active:scale-95 transition-all text-center flex items-center justify-center"
+                >
+                    양식 다운로드
+                </a>
+            </div>
 
             <AnimatePresence>
                 {isModalOpen && (
@@ -646,7 +658,7 @@ const Adminpage: React.FC = () => {
             <BackgroundLayout>
                 <div className="flex items-center justify-center w-full min-h-screen">
                     <div className="flex flex-col items-center justify-center text-center">
-                    <div className="text-white text-[25px] font-bold px-4" style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
+                    <div className="text-white text-[30px] font-bold px-4" style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
                         아직 엑셀 파일을 불러오지 않았습니다.<br />
                         경기 정보를 업로드해주세요!
                     </div>
