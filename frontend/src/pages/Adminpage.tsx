@@ -309,18 +309,12 @@ const Adminpage: React.FC = () => {
                 params: {matchId: currentMatchId},
             });
             const judgeList = judgesResponse.data;
-
-            console.log("✅ 초기 로딩: matches:", matches);
-            console.log("✅ 현재 matchId:", currentMatchId);
-            console.log("✅ 초기 로딩: roundScores:", roundScoresFromServer);
             console.log("✅ 초기 로딩: judgeList:", judgeList);
           
             setRoundScores(roundScoresFromServer);
             setScoreStatus("⏳ 점수 대기 중...");
-        } catch (error:any) {
+        } catch (error) {
             console.error("❌ fetchInitialData 실패", error);
-            console.error("🔍 상태코드:", error.response?.status);
-            console.error("🔍 응답내용:", error.response?.data);
         }
     };
 

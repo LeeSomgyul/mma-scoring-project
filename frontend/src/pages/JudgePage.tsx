@@ -564,7 +564,10 @@ const JudgePage: React.FC = () => {
 
   return (
     <BackgroundLayout>
-      <div className="flex flex-col items-center justify-center w-full h-screen">
+      <div className={`flex flex-col items-center w-full h-screen ${
+          verified ? "justify-start" : "justify-center"
+        }`}
+      >
         {/* 로그인 화면 */}
         {!verified ? (
           <div className="text-center text-white" style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
@@ -622,7 +625,7 @@ const JudgePage: React.FC = () => {
               </span>
             </div>
             
-            <div className="w-full max-w-5xl mx-auto mt-10 overflow-hidden text-base rounded shadow-md">
+            <div className="w-full max-w-5xl mx-auto mt-5 overflow-hidden text-base rounded shadow-md">
               {/* 헤더 */}
               <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold text-white">
                 <div className="col-span-1 bg-transparent"></div>
@@ -662,24 +665,38 @@ const JudgePage: React.FC = () => {
                   {/* RED 점수 입력 */}
                   <div className="flex items-center justify-center bg-white border border-gray-300">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d*"
+                      placeholder="점수 입력"
                       value={scores[i]?.red ?? ""}
                       onChange={(e) => handleScoreChange(i, "red", e.target.value)}
                       disabled={!editing[i]}
-                      className="w-[80px] h-[60px] text-center font-normal bg-transparent border-none outline-none focus:ring-0"
-                      style={{ fontSize: `${roundFontSize}px`}}
+                      className="w-full h-full font-semibold text-center bg-transparent border-none outline-none focus:ring-0 placeholder:text-center"
+                      style={{ 
+                        fontSize: `${roundFontSize}px`,
+                        fontFamily: "inherit",
+                        lineHeight: `${rowHeight}px`
+                      }}
                     />
                   </div>
 
                   {/* BLUE 점수 입력 */}
                   <div className="flex items-center justify-center bg-white border border-gray-300">
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d*"
+                      placeholder="점수 입력"
                       value={scores[i]?.blue ?? ""}
                       onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
                       disabled={!editing[i]}
-                      className="w-[80px] h-[60px] text-center font-normal bg-transparent border-none outline-none focus:ring-0"
-                      style={{ fontSize: `${roundFontSize}px`}}
+                      className="w-full h-full font-semibold text-center bg-transparent border-none outline-none focus:ring-0 placeholder:text-center"
+                      style={{
+                        fontSize: `${roundFontSize}px`,
+                        fontFamily: "inherit",
+                        lineHeight: `${rowHeight}px`
+                      }}
                     />
                   </div>
 
