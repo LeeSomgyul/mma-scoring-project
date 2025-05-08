@@ -22,11 +22,13 @@ export interface MatchInfo {
 interface JudgeMatchStore {
     matchInfo: MatchInfo | null;
     setMatchInfo: (info: MatchInfo) => void;
+    reset: () => void;
 }
 
 export const useJudgeMatchStore = create<JudgeMatchStore>()(
   (set) => ({
     matchInfo: null,
     setMatchInfo: (info) => set({ matchInfo: info }),
+    reset: () => set({ matchInfo: null }),
   })
 );

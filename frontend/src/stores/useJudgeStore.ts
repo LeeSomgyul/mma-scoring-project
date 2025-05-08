@@ -15,6 +15,8 @@ interface JudgeState {
 
   isHydrated: boolean;
     setIsHydrated: (val: boolean) => void;
+
+  reset: () => void;
 }
 
 export const useJudgeStore = create<JudgeState>()(
@@ -31,6 +33,14 @@ export const useJudgeStore = create<JudgeState>()(
 
       isHydrated: false,
       setIsHydrated: (val) => set({ isHydrated: val }),
+
+      reset: () =>
+        set({
+          judgeName: null,
+          deviceId: null,
+          verified: false,
+          isHydrated: false,
+        }),
     }),
     {
       name: "judge-info-storage",

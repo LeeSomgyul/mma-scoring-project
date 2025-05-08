@@ -540,7 +540,7 @@ const Adminpage: React.FC = () => {
 
     //✅ DB 및 localStorage 초기화 버튼
     const  handleEnd = async () => {
-        const confirmEnd = window.confirm("⚠️ 경기를 종료하시겠습니까? 종료 시 모든 데이터가 초기화됩니다.");
+        const confirmEnd = window.confirm("⚠️ 경기를 종료하시겠습니까?\n종료 시 모든 데이터가 초기화됩니다.");
         if(!confirmEnd) return;
 
         try{

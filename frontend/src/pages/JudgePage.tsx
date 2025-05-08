@@ -208,10 +208,6 @@ const JudgePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    console.log("👀 useEffect 감지됨 - matchInfo.id:", matchInfo?.id);
-    console.log("🧪 stompClient 연결 상태:", stompClient?.connected);
-    console.log("🧾 zustand 값 → judgeName:", judgeName, "deviceId:", deviceId);
-
     if (!matchInfo || !stompClient?.connected) {
       console.warn("⛔ JOINED 안보냄 → 조건 미충족 (matchInfo or stompClient)");
       return;
@@ -264,7 +260,7 @@ const JudgePage: React.FC = () => {
         return;
       }
   
-      // 1. 전체 경기 목록 가져오기
+      //🔴 1. 전체 경기 목록 가져오기
       const matchesResponse = await axios.get(`${baseURL}/api/matches`);
       const matches = matchesResponse.data;
       setMatches(matches);
@@ -273,13 +269,25 @@ const JudgePage: React.FC = () => {
         console.warn("❌ 경기가 없습니다.");
         return;
       }
+
+      //🔴 2. 현재 진행중인 matchId 가져오기
+      const progressResponse = await axios.get(`${baseURL}/api/progress`);
+      const currentMatchId = progressResponse.data?.matchId;
+
+      if (!currentMatchId) {
+        console.warn("❌ 현재 matchId 없음. 초기화 중단");
+        return;
+      }
   
-      // 2. 현재 진행 중인 경기 선택 (무조건 첫 번째)
-      const currentMatch = matches[0];
-      const matchId = currentMatch.id;
+       //🔴 3. matchId로 현재 경기 찾기
+      const currentMatch = matches.find((m: any) => m.id === currentMatchId);
+      if (!currentMatch) {
+        console.warn("❌ matchId에 해당하는 match 없음");
+        return;
+      }
   
-      // 3. 해당 경기의 라운드 정보 가져오기
-      const roundsResponse = await axios.get(`${baseURL}/api/rounds/match/${matchId}`);
+      //🔴 4. 해당 경기의 라운드 정보 가져오기
+      const roundsResponse = await axios.get(`${baseURL}/api/rounds/match/${currentMatchId}`);
       const rounds = roundsResponse.data;
   
       setMatchInfo({
@@ -287,12 +295,11 @@ const JudgePage: React.FC = () => {
         rounds,
       });
   
-      // 4. 점수 가져오기 (내 점수만 추출)
+      //🔴 5. 점수 가져오기 (내 점수만 추출)
       const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`, {
-        params: { matchId },
+        params: { matchId: currentMatchId },
       });
       const roundScoresFromServer = scoresResponse.data;
-  
       const myScores: MyScore[] = roundScoresFromServer.map((round: any) => {
         const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
         return {
@@ -535,12 +542,16 @@ const JudgePage: React.FC = () => {
 
   //✅ 경기 종료 시 로컬스토리지 초기화 버튼
   const handleOut = () => {
-    const confirmEnd = window.confirm("경기를 종료하시겠습니까?(초기화)");
+    const confirmEnd = window.confirm("경기를 종료하시겠습니까?\n(점수 및 상태 초기화)");
     if (!confirmEnd) return;
 
-    localStorage.removeItem("judge-score-storage");
     localStorage.removeItem("judge-info-storage");
-    localStorage.removeItem("judge-match-storage");
+    localStorage.removeItem("judgeDeviceId");
+    localStorage.removeItem("verified");
+
+    useJudgeStore.getState().reset?.();
+    useJudgeScoreStore.getState().reset?.();
+    useJudgeMatchStore.getState().reset?.();
 
     alert("✅ 데이터가 초기화되었습니다.");
     navigate("/judge-end");

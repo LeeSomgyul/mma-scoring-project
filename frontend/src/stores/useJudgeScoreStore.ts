@@ -19,6 +19,8 @@ interface JudgeScoreState {
 
   currentRoundIndex: number;
   setCurrentRoundIndex: (index: number) => void;
+
+  reset: () => void;
 }
 
 export const useJudgeScoreStore = create<JudgeScoreState>()(
@@ -34,5 +36,13 @@ export const useJudgeScoreStore = create<JudgeScoreState>()(
 
     currentRoundIndex: 0,
     setCurrentRoundIndex: (index) => set({ currentRoundIndex: index }),
+
+    reset: () =>
+      set({
+        scores: [],
+        submitted: [],
+        editing: [],
+        currentRoundIndex: 0,
+      }),
   })
 );
