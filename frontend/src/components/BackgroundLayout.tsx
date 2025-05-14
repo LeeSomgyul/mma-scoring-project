@@ -7,10 +7,10 @@ interface Props {
 const BackgroundLayout = ({ children }: Props) => {
   return (
     <div
-      className="w-screen min-h-screen overflow-hidden bg-center bg-no-repeat bg-cover touch-none"
+      className="relative w-screen h-screen overflow-hidden bg-center bg-no-repeat bg-cover touch-none"
       style={{ backgroundImage: `url('/images/bg_main.jpg')` }}
     >
-      {/* sub_logo 로고 항상 고정 */}
+      {/* 고정된 로고 */}
       <div className="absolute z-10 top-7 left-6">
         <img
           src="/images/sub_logo.svg"
@@ -19,8 +19,14 @@ const BackgroundLayout = ({ children }: Props) => {
         />
       </div>
 
-      {/* 실제 페이지 콘텐츠 */}
-      <div className="relative z-20">{children}</div>
+      {/* 16:10 기준 콘텐츠, 상단 배치, 5:3은 여백으로 처리 */}
+      <div className="absolute top-0 left-0 flex items-start justify-center w-full h-full">
+        <div className="relative w-[90vw] max-w-[1280px]" style={{ aspectRatio: '16/10' }}>
+          <div className="relative w-full h-full overflow-hidden">
+            {children}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

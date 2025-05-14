@@ -558,11 +558,6 @@ const Adminpage: React.FC = () => {
             alert("❌ 서버 오류 발생. 관리자에게 문의하세요.");
         }
     };
-
-    //✅ 폰트 크기
-    const roundFontSize = 45; // 라운드 번호 폰트 (사용자 정의)
-    const scoreFontSize = 32; // 점수 폰트 크기
-    const rowHeight = 90;
  
 
     const renderFileUploadSection = () => (
@@ -655,16 +650,14 @@ const Adminpage: React.FC = () => {
     //✅ 엑셀 업로드 전 화면 
     if(matches.length === 0){
         return(
-            <BackgroundLayout>
-                <div className="flex items-center justify-center w-full min-h-screen">
-                    <div className="flex flex-col items-center justify-center text-center">
+           <BackgroundLayout>
+                <div className="flex flex-col items-center justify-center w-full h-full text-center">
                     <div className="text-white text-[30px] font-bold px-4" style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
                         아직 엑셀 파일을 불러오지 않았습니다.<br />
                         경기 정보를 업로드해주세요!
                     </div>
                     <div className="mt-6">
                         {renderFileUploadSection()}
-                    </div>
                     </div>
                 </div>
             </BackgroundLayout>
@@ -673,163 +666,150 @@ const Adminpage: React.FC = () => {
 
     return(
         <BackgroundLayout>
-            {/* 중앙 상단 경기 정보 */}
-            <div className="mt-3 mb-10 text-center">
-                <span
-                    className="font-sans font-bold text-white"
-                    style={{
-                        fontSize: `${80}px`,
-                        textShadow: `
-                            -1px 0px rgba(0, 0, 0, 0.8),
-                            1px 0px rgba(0, 0, 0, 0.8),
-                            0px -1px rgba(0, 0, 0, 0.8),
-                            0px 1px rgba(0, 0, 0, 0.8)
-                        `,
-                    }}
-                >
-                    {current.matchNumber}경기&nbsp;&nbsp;{current.division}
-                </span>
-            </div>
+            {/* 상단 여백 추가 */}
+  <div className="mt-[5vh]">
+    {/* 중앙 상단 경기 정보 */}
+    <div className="mb-5 text-center">
+      <span
+        className="font-sans font-bold text-white"
+        style={{
+          fontSize: `min(8vw, 60px)`,
+          textShadow: `
+            -1px 0px rgba(0, 0, 0, 0.8),
+            1px 0px rgba(0, 0, 0, 0.8),
+            0px -1px rgba(0, 0, 0, 0.8),
+            0px 1px rgba(0, 0, 0, 0.8)
+          `,
+        }}
+      >
+        {current.matchNumber}경기 {current.division}
+      </span>
+    </div>
 
-            <div className="w-full max-w-5xl mx-auto mt-10 overflow-hidden text-base rounded shadow-md">
-                {/* 헤더 */}
-                <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold text-white">
-                    <div className="col-span-1 bg-transparent"></div>
-                    <div
-                        className="flex items-center justify-center bg-red-600 border border-gray-300"
-                        style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
-                    >
-                        {current.redName} ({current.redGym})
-                    </div>
-                    <div 
-                        className="flex items-center justify-center bg-blue-600 border border-gray-300"
-                        style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
-                    >
-                        {current.blueName} ({current.blueGym})
-                    </div>
-                    <div className="col-span-1 bg-transparent"></div>
-                </div>
+    <div className="w-full max-w-[90vw] mx-auto overflow-hidden text-base rounded shadow-md">
+      {/* 헤더 */}
+      <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold text-white">
+        <div className="col-span-1 bg-transparent"></div>
+        <div
+          className="flex items-center justify-center bg-red-600 border border-gray-300"
+          style={{ fontSize: `min(3vw, 20px)`, height: `min(10vh, 70px)` }} // 높이 증가
+        >
+          {current.redName} ({current.redGym})
+        </div>
+        <div
+          className="flex items-center justify-center bg-blue-600 border border-gray-300"
+          style={{ fontSize: `min(3vw, 20px)`, height: `min(10vh, 70px)` }} // 높이 증가
+        >
+          {current.blueName} ({current.blueGym})
+        </div>
+        <div className="col-span-1 bg-transparent"></div>
+      </div>
 
-                {/* 라운드 별 점수 */}
-                <div 
-                    className="w-full max-w-5xl mx-auto mt-0 overflow-y-auto text-base rounded shadow-md"
-                    style={{ maxHeight: "365px" ,scrollbarWidth: "none",msOverflowStyle: "none", }}
-                >
-                    {roundScores.map((round, index) => {
-                        const redSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.red ?? 0), 0);
-                        const blueSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.blue ?? 0), 0);
-                        const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);      
+      {/* 라운드 별 점수 */}
+      <div
+        className="w-full max-w-[90vw] mx-auto mt-0 overflow-y-auto text-base rounded shadow-md"
+        style={{ maxHeight: "min(37vh, 400px)", scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {roundScores.map((round, index) => {
+          const redSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.red ?? 0), 0);
+          const blueSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.blue ?? 0), 0);
+          const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);
 
-                        return(
-                            <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
-                                {/* 라운드 번호 */}
-                                <div 
-                                    className="flex items-center justify-center font-bold bg-gray-100 border border-gray-300"
-                                    style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
-                                >
-                                    {round.roundNumber}R
-                                </div>
-                                
-                                {/* RED 점수 */}
-                                <div
-                                    className={`flex items-center justify-center bg-white border border-gray-300 ${
-                                        allSubmitted && redSum > blueSum ? 'font-bold' : 'font-normal'
-                                    }`}
-                                    style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
-                                >
-                                    {allSubmitted ? redSum : "-"}
-                                </div>
+          return (
+            <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
+              <div
+                className="flex items-center justify-center font-bold bg-gray-100 border border-gray-300"
+                style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+              >
+                {round.roundNumber}R
+              </div>
+              <div
+                className={`flex items-center justify-center bg-white border border-gray-300 ${
+                  allSubmitted && redSum > blueSum ? 'font-bold' : 'font-normal'
+                }`}
+                style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+              >
+                {allSubmitted ? redSum : "-"}
+              </div>
+              <div
+                className={`flex items-center justify-center bg-white border border-gray-300 ${
+                  allSubmitted && blueSum > redSum ? 'font-bold' : 'font-normal'
+                }`}
+                style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+              >
+                {allSubmitted ? blueSum : "-"}
+              </div>
+              <div
+                className="flex items-center justify-center px-2 py-2 text-sm bg-gray-100 border border-gray-300"
+                style={{ height: `min(12vh, 70px)` }}
+              >
+                {round.judges.length > 0 ? (
+                  <div className="flex gap-2">
+                    {round.judges.map((judge, idx) => {
+                      const isEntered = judge.isConnected;
+                      const isSubmitted = judge.submitted;
+                      const circleClass = isEntered
+                        ? isSubmitted
+                          ? "bg-green-500 text-white"
+                          : "bg-white text-black"
+                        : "bg-gray-300 text-gray-400";
 
-                                {/* BLUE 점수 */}
-                                <div
-                                    className={`flex items-center justify-center bg-white border border-gray-300 ${
-                                        allSubmitted && blueSum > redSum ? 'font-bold' : 'font-normal'
-                                    }`}
-                                    style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
-                                >
-                                    {allSubmitted ? blueSum : "-"}
-                                </div>
-
-                                {/* 심판 상태 */}
-                                <div
-                                className="flex items-center justify-center px-2 py-2 text-sm bg-gray-100 border border-gray-300"
-                                style={{ height: `${rowHeight}px` }}
-                                >
-                                    {round.judges.length > 0 ? (
-                                        <div className="flex gap-2">
-                                            {round.judges.map((judge, idx) => {
-                                                const isEntered = judge.isConnected;
-                                                const isSubmitted = judge.submitted;
-
-                                                const baseClass =
-                                                    "w-[70px] h-[70px] rounded-full flex items-center justify-center text-xs font-bold shadow-md"; // 기본 원 + 그림자
-
-                                                    const circleClass = isEntered
-                                                    ? isSubmitted
-                                                      ? "bg-green-500 text-white" // 제출 완료
-                                                      : "bg-white text-black" // 입장만
-                                                    : "bg-gray-300 text-gray-400"; // 미입장
-
-                                                return (
-                                                <div
-                                                    key={idx}
-                                                    className={`${baseClass} ${circleClass}`}
-                                                    title={judge.judgeName}
-                                                    style={{
-                                                        fontSize: "15px",
-                                                        fontWeight: 600,
-                                                      }}
-                                                >
-                                                    {judge.judgeName.length > 3
-                                                    ? judge.judgeName.slice(0, 3) // 긴 이름은 잘라서
-                                                    : judge.judgeName}
-                                                </div>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <div className="text-lg font-semibold text-center text-gray-600">
-                                            입장 대기중...
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-full flex items-center justify-center shadow-md ${circleClass}`}
+                          title={judge.judgeName}
+                          style={{
+                            width: "clamp(32px, 5vw, 50px)",
+                            height: "clamp(32px, 5vw, 50px)",
+                            fontSize: "clamp(10px, 2vw, 14px)",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {judge.judgeName.length > 3 ? judge.judgeName.slice(0, 3) : judge.judgeName}
+                        </div>
+                      );
                     })}
-                </div>
-
-                {/* 합계 */}            
-                <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold border border-gray-300">
-                    <div
-                        className="flex items-center justify-center border border-gray-300 bg-lime-300"
-                        style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
-                    >
-                        합계
-                    </div>
-
-                    {/* RED 총합 */}
-                    <div
-                        className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
-                        redTotal > blueTotal ? 'border-8 border-red-500' : ''
-                        }`}
-                        style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
-                    >
-                        {redTotal}
-                    </div>
-
-                    {/* BLUE 총합 */}
-                    <div
-                        className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
-                        blueTotal > redTotal ? 'border-8 border-red-500' : ''
-                        }`}
-                        style={{ fontSize: `${roundFontSize}px`, height: `${rowHeight}px` }}
-                    >
-                        {blueTotal}
-                    </div>
-
-                    <div className="bg-gray-100 border border-gray-300"></div>
-                </div>
+                  </div>
+                ) : (
+                  <div className="text-[min(3vw, 16px)] font-semibold text-center text-gray-600">
+                    입장 대기중...
+                  </div>
+                )}
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* 합계 */}
+      <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold border border-gray-300">
+        <div
+          className="flex items-center justify-center border border-gray-300 bg-lime-300"
+          style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+        >
+          합계
+        </div>
+        <div
+          className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
+            redTotal > blueTotal ? 'border-8 border-red-500' : ''
+          }`}
+          style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+        >
+          {redTotal}
+        </div>
+        <div
+          className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
+            blueTotal > redTotal ? 'border-8 border-red-500' : ''
+          }`}
+          style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+        >
+          {blueTotal}
+        </div>
+        <div className="bg-gray-100 border border-gray-300"></div>
+      </div>
+    </div>
+  </div>
             
 
             {/* 다음경기 버튼 */}  
@@ -842,8 +822,8 @@ const Adminpage: React.FC = () => {
                         }
                         handleNext();
                     }}
-                    className="flex items-center justify-center px-6 py-0 font-bold text-white transition-all rounded-full active:scale-95"
-                    style={{ fontSize: `${40}px` }}
+                    className="flex items-center justify-center px-6 py-0 font-bold text-white transition-all bg-transparent border-none rounded-full outline-none appearance-none active:scale-95"
+                    style={{ fontSize: `${30}px` }}
                     title="다음 경기"
                 >
                     다음 경기

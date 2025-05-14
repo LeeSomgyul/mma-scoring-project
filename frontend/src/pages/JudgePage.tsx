@@ -556,13 +556,6 @@ const JudgePage: React.FC = () => {
     alert("✅ 데이터가 초기화되었습니다.");
     navigate("/judge-end");
   };
-
-  //✅ 사용자 정의 폰트 크기
-  const headingFontSize = 45;
-  const descFontSize = 25;
-  const roundFontSize = 45;
-  const scoreFontSize = 32;
-  const rowHeight = 90;
   
 
   if (!isHydrated) {
@@ -575,29 +568,14 @@ const JudgePage: React.FC = () => {
 
   return (
     <BackgroundLayout>
-      <div className={`flex flex-col items-center w-full h-screen ${
-          verified ? "justify-start" : "justify-center"
-        }`}
-      >
-        {/* 로그인 화면 */}
+      <div className="relative w-[90vw] max-w-[1280px] aspect-[16/10] mx-auto">
         {!verified ? (
-          <div className="text-center text-white" style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
-            {/* 타이틀 */}
-            <h2
-              className="mb-4 font-bold"
-              style={{ fontSize: `${headingFontSize}px` }}
-            >
-              심판 입장
-            </h2>
-            
-            {/* 설명 */}
-            <p
-              className="mb-6 font-medium "
-              style={{ fontSize: `${descFontSize}px` }}
-            >
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-[5%] text-center text-white"
+            style={{ textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}>
+            <h2 className="mb-4 font-bold" style={{ fontSize: "clamp(24px, 4vw, 40px)" }}>심판 입장</h2>
+            <p className="mb-6 font-medium" style={{ fontSize: "clamp(16px, 3vw, 24px)" }}>
               본부에서 전달받은 4자리 비밀번호를 입력해주세요.
             </p>
-            {/* 입력창 */}
             <input
               type="text"
               placeholder="비밀번호 입력 (숫자 4자리)"
@@ -606,8 +584,6 @@ const JudgePage: React.FC = () => {
               maxLength={4}
               className="block w-full max-w-xs px-4 py-3 mx-auto mb-4 text-lg text-black rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
-
-            {/* 입장하기 버튼 */}
             <button
               onClick={handleVerify}
               className="block w-full max-w-xs px-6 py-3 mx-auto font-bold text-white text-lg transition-all rounded-full bg-gradient-to-r from-red-500 to-blue-500 shadow-[0_4px_10px_rgba(0,0,0,0.3)] active:scale-95"
@@ -616,134 +592,72 @@ const JudgePage: React.FC = () => {
             </button>
           </div>
         ) : matchInfo ? (
-          //점수 입력 화면
-          <>
-            {/* 중앙 상단 경기 정보 */}
-            <div className="mt-3 mb-10 text-center">
-              <span
-                      className="font-sans font-bold text-white"
-                      style={{
-                          fontSize: `${80}px`,
-                          textShadow: `
-                              -1px 0px rgba(0, 0, 0, 0.8),
-                              1px 0px rgba(0, 0, 0, 0.8),
-                              0px -1px rgba(0, 0, 0, 0.8),
-                              0px 1px rgba(0, 0, 0, 0.8)
-                          `,
-                      }}
-              >
+          <div className="absolute inset-0 flex flex-col items-center px-[5%] py-[3%] overflow-y-auto">
+            <div className="mb-6 text-center">
+              <span className="font-sans font-bold text-white"
+                style={{ fontSize: "clamp(28px, 5vw, 60px)", textShadow: `-1px 0px rgba(0, 0, 0, 0.8), 1px 0px rgba(0, 0, 0, 0.8), 0px -1px rgba(0, 0, 0, 0.8), 0px 1px rgba(0, 0, 0, 0.8)` }}>
                 {matchInfo.matchNumber}경기&nbsp;&nbsp;{matchInfo.division}
               </span>
             </div>
-            
-            <div className="w-full max-w-5xl mx-auto mt-5 overflow-hidden text-base rounded shadow-md">
-              {/* 헤더 */}
-              <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold text-white">
-                <div className="col-span-1 bg-transparent"></div>
-                <div
-                  className="flex items-center justify-center bg-red-600 border border-gray-300"
-                  style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
-                >
+            <div className="w-full overflow-hidden rounded shadow-md">
+              <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] font-bold text-white text-center">
+                <div />
+                <div className="flex items-center justify-center bg-red-600 border border-gray-300"
+                  style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(10vh, 70px)" }}>
                   {matchInfo.redName}({matchInfo.redGym})
                 </div>
-                <div
-                  className="flex items-center justify-center bg-blue-600 border border-gray-300"
-                  style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
-                >
+                <div className="flex items-center justify-center bg-blue-600 border border-gray-300"
+                  style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(10vh, 70px)" }}>
                   {matchInfo.blueName}({matchInfo.blueGym})
                 </div>
-                <div className="col-span-1 bg-transparent"></div>
+                <div />
               </div>
-
-              {/* 라운드 별 점수 */}
-              <div
-                className="w-full max-w-5xl mx-auto mt-0 overflow-y-auto text-base rounded shadow-md"
-                style={{ maxHeight: "365px" ,scrollbarWidth: "none",msOverflowStyle: "none", }}
-              >
-              {Array.from({ length: matchInfo.roundCount }, (_, i) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300"
-                >
-                  {/* 라운드 번호 */}
-                  <div
-                    className="flex items-center justify-center font-bold bg-gray-100 border border-gray-300"
-                    style={{ fontSize: `${roundFontSize}px`, height: "90px" }}
-                  >
-                    {i + 1}R
+              <div className="overflow-y-auto" style={{ maxHeight: "min(37vh, 400px)", scrollbarWidth: "none" }}>
+                {Array.from({ length: matchInfo.roundCount }, (_, i) => (
+                  <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
+                    <div className="flex items-center justify-center font-bold bg-gray-100 border"
+                      style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(12vh, 70px)" }}>
+                      {i + 1}R
+                    </div>
+                    <div className="flex items-center justify-center bg-white border">
+                      <input type="text" inputMode="numeric" pattern="\d*" placeholder="점수"
+                        value={scores[i]?.red ?? ""}
+                        onChange={(e) => handleScoreChange(i, "red", e.target.value)}
+                        disabled={!editing[i]}
+                        className="w-full h-full font-semibold text-center bg-transparent border-none outline-none"
+                        style={{ fontSize: "clamp(16px, 3vw, 24px)" }} />
+                    </div>
+                    <div className="flex items-center justify-center bg-white border">
+                      <input type="text" inputMode="numeric" pattern="\d*" placeholder="점수"
+                        value={scores[i]?.blue ?? ""}
+                        onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
+                        disabled={!editing[i]}
+                        className="w-full h-full font-semibold text-center bg-transparent border-none outline-none"
+                        style={{ fontSize: "clamp(16px, 3vw, 24px)" }} />
+                    </div>
+                    <div onClick={() => submitted[i] && !editing[i] ? handleEdit(i) : handleSubmit(i)}
+                      className={`flex items-center justify-center font-bold text-white cursor-pointer border
+                        ${submitted[i] && !editing[i] ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}`}
+                      style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(12vh, 70px)" }}>
+                      {submitted[i] && !editing[i] ? "수정" : submitted[i] ? "재전송" : "전송"}
+                    </div>
                   </div>
-
-                  {/* RED 점수 입력 */}
-                  <div className="flex items-center justify-center bg-white border border-gray-300">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="\d*"
-                      placeholder="점수 입력"
-                      value={scores[i]?.red ?? ""}
-                      onChange={(e) => handleScoreChange(i, "red", e.target.value)}
-                      disabled={!editing[i]}
-                      className="w-full h-full font-semibold text-center bg-transparent border-none outline-none focus:ring-0 placeholder:text-center"
-                      style={{ 
-                        fontSize: `${roundFontSize}px`,
-                        fontFamily: "inherit",
-                        lineHeight: `${rowHeight}px`
-                      }}
-                    />
-                  </div>
-
-                  {/* BLUE 점수 입력 */}
-                  <div className="flex items-center justify-center bg-white border border-gray-300">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="\d*"
-                      placeholder="점수 입력"
-                      value={scores[i]?.blue ?? ""}
-                      onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
-                      disabled={!editing[i]}
-                      className="w-full h-full font-semibold text-center bg-transparent border-none outline-none focus:ring-0 placeholder:text-center"
-                      style={{
-                        fontSize: `${roundFontSize}px`,
-                        fontFamily: "inherit",
-                        lineHeight: `${rowHeight}px`
-                      }}
-                    />
-                  </div>
-
-                  {/* 제출 or 수정 버튼 */}
-                  <div
-                    onClick={() => {
-                      submitted[i] && !editing[i] ? handleEdit(i) : handleSubmit(i);
-                    }}
-                    className={`flex items-center justify-center cursor-pointer font-bold text-white transition-all
-                      ${submitted[i] && !editing[i] ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}
-                    `}
-                    style={{ fontSize: `${scoreFontSize}px`, height: `${rowHeight}px` }}
-                  >
-                    {submitted[i] && !editing[i] ? "수정" : submitted[i] ? "재전송" : "전송"}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-              {/* 경기 종료 */}
-              <div className="fixed z-30 flex items-center space-x-4 top-7 right-6">
-                <button
-                  onClick={handleOut}
-                  className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20 active:scale-90"
-                  title="경기 종료"
-                >
-                  <SquareX className="text-white w-14 h-14" />
-                </button>
+                ))}
               </div>
             </div>
-          </>
-          ) : (
-            <div>⏳ 경기 정보를 불러오는 중입니다...</div>
-          )}
-        </div>
-      </BackgroundLayout>
+            <div className="fixed z-30 flex items-center space-x-4 top-7 right-6">
+              <button onClick={handleOut}
+                className="p-2 transition-all border rounded-full shadow-lg cursor-pointer bg-white/10 border-white/30 hover:bg-white/20 active:scale-90"
+                title="경기 종료">
+                <SquareX className="text-white w-14 h-14" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-white">⏳ 경기 정보를 불러오는 중입니다...</div>
+        )}
+      </div>
+    </BackgroundLayout>
     );
 };
 
