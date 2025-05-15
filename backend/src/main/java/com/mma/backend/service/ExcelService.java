@@ -57,8 +57,13 @@ public class ExcelService {
                 "블루소속", "blueGym"
         );
 
+
         //🔴엑셀의 열 속성 순서가 바뀌어도 데이터를 가져올 수 있도록 하는 기능, <속성명, 인덱스> 저장
         Map<String, Integer> columnIndex = new HashMap<>();
+
+        // ✔️ 필수 컬럼이 다 있는지 확인
+        List<String> requiredFields = List.of("matchNumber", "division", "roundCount", "redName", "redGym", "blueName", "blueGym");
+
         for(int j = 0; j < headerRow.getLastCellNum(); j++) {
             String rawHeader = headerRow.getCell(j).getStringCellValue().trim();
             String normalized = rawHeader.replaceAll("\\s+", "").toLowerCase();
@@ -122,19 +127,26 @@ public class ExcelService {
 
     //✅ 엑셀에서 숫자가 들어갈 자리에 문자가 들어있는 경우 막기
     private int getIntCell(Cell cell, String columnName, int rowIndex, int columnIndex) {
-        if(cell == null) throw new IllegalArgumentException("[" + (rowIndex + 1) + "행 " + (columnIndex + 1) + "열] '" + columnName + "' 셀은 비어있으면 안됩니다.");
-        try{
-            if(cell.getCellType() == CellType.NUMERIC) {
+        if (cell == null) throw new IllegalArgumentException(
+                "[" + (rowIndex + 1) + "행 " + (columnIndex + 1) + "열] '" + columnName + "' 셀은 비어있습니다. 숫자를 입력해 주세요."
+        );
+        try {
+            if (cell.getCellType() == CellType.NUMERIC) {
                 return (int) cell.getNumericCellValue();
-            }else if(cell.getCellType() == CellType.STRING) {
+            } else if (cell.getCellType() == CellType.STRING) {
                 return Integer.parseInt(cell.getStringCellValue().trim());
-            }else{
-                throw new IllegalArgumentException("[" + (rowIndex + 1) + "행 " + (columnIndex + 1) + "열] '" + columnName + "' 셀은 숫자를 입력해 주세요.");
+            } else {
+                throw new IllegalArgumentException(
+                        "[" + (rowIndex + 1) + "행 " + (columnIndex + 1) + "열] '" + columnName + "' 셀에는 숫자를 입력해야 합니다."
+                );
             }
-        }catch (Exception e){
-            throw  new IllegalArgumentException("[" + (rowIndex + 1) + "행 " + (columnIndex + 1) + "열] '" + columnName + "' 셀은 숫자를 입력해 주세요.", e);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(
+                    "[" + (rowIndex + 1) + "행 " + (columnIndex + 1) + "열] '" + columnName + "' 셀의 숫자 형식이 잘못되었습니다. 예: 1, 2, 3 ..."
+            );
         }
     }
+
 
     //✅ 엑셀에서 문자가 들어갈 자리에 다른게 들어간 경우
     private String getStringCell(Cell cell, String columnName, int rowIndex, int columnIndex) {

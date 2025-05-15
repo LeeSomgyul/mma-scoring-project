@@ -372,6 +372,7 @@ const Adminpage: React.FC = () => {
         }catch(error:any){
             console.error("❌ 업로드 실패:", error);
             console.error("📥 서버 응답:", error.response?.data);
+            alert("❌ 업로드 실패하였습니다. 파일을 다시 확인해주세요.");
         }
     };
 

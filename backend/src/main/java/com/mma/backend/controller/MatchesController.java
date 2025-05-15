@@ -54,14 +54,24 @@ public class MatchesController {
     @PostMapping("/upload")
     public ResponseEntity<List<String>> uploadExcel(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("sheet") int userSheetNumber){
+            @RequestParam("sheet") int userSheetNumber) {
 
         System.out.println("📥 업로드 받은 파일: " + file.getOriginalFilename() + ", sheet: " + userSheetNumber);
 
-        try{
+        try {
+            // ✔️ 서비스에서는 List<String>만 리턴
             List<String> resultLog = excelService.saveMatchesFromExcel(file, userSheetNumber);
-            return ResponseEntity.ok(resultLog);
-        }catch (Exception e){
+
+            // ✔️ 여기서만 응답 상태코드 판단
+            boolean hasError = resultLog.stream().anyMatch(line -> line.contains("❌") || line.contains("오류"));
+
+            if (hasError) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(resultLog);
+            } else {
+                return ResponseEntity.ok(resultLog);
+            }
+
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(List.of("❌ 엑셀 업로드 실패: " + e.getMessage()));
         }
