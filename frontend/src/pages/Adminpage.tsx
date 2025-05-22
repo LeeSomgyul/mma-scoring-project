@@ -1,6 +1,6 @@
 import React, {useEffect, useState, useRef} from "react";
 import { useNavigate } from 'react-router-dom';
-import axios from "axios";
+import getAxiosInstance from "../api/axiosInstance";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 import * as XLSX from "xlsx";
@@ -41,7 +41,6 @@ const Adminpage: React.FC = () => {
     const stompClientRef = useRef<Client | null>(null);
 
     //✅ 전역으로 쓰이는 코드
-    const baseURL = import.meta.env.VITE_API_BASE_URL;
     const current = matches[currentIndex];
     const navigate = useNavigate();
 
@@ -77,7 +76,7 @@ const Adminpage: React.FC = () => {
         // 🔴 매치 없으면 요청 안함
         if (!currentMatchId) return;
       
-        axios.get(`${baseURL}/api/progress/${currentMatchId}/qr-generated`)
+        getAxiosInstance().get(`/api/progress/${currentMatchId}/qr-generated`)
           .then((res) => {
             console.log("✅ QR 상태 복원:", res.data);
             if (res.data.qrGenerated) {
@@ -101,7 +100,7 @@ const Adminpage: React.FC = () => {
     //✅ WebSocket 연결
     useEffect(() => {
         const runWebSocket = () => {
-            const socket = new SockJS(`${baseURL}/ws`);
+            const socket = new SockJS(`/ws`);
             const client = new Client({
                 webSocketFactory: () => socket,
                 reconnectDelay: 5000,
@@ -230,11 +229,11 @@ const Adminpage: React.FC = () => {
         ) {
           const currentMatch = matches[currentIndex];
           //❤️1. 라운드 정보 가져오기
-          axios.get(`${baseURL}/api/rounds/match/${currentMatch.id}`)
+          getAxiosInstance().get(`/api/rounds/match/${currentMatch.id}`)
             .then((roundRes) => {
               const roundList = roundRes.data;
               //❤️2. 심판 목록 가져오기
-              axios.get(`${baseURL}/api/judges/current`, {
+              getAxiosInstance().get(`/api/judges/current`, {
                 params: { matchId: currentMatch.id },
               }).then((judgeRes) => {
                 const judgeList = judgeRes.data;
@@ -268,7 +267,7 @@ const Adminpage: React.FC = () => {
 
         try{
             //❤️ 전체 경기 목록 가져오기
-            const matchesResponse = await axios.get(`${baseURL}/api/matches`);
+            const matchesResponse = await getAxiosInstance().get(`/api/matches`);
             const matches = matchesResponse.data;
 
             setMatches(matches);
@@ -279,7 +278,7 @@ const Adminpage: React.FC = () => {
             }
 
             //❤️ 현재 진행중인 matchId를 서버로부터 가져오기
-            const progressResponse = await axios.get(`${baseURL}/api/progress`);
+            const progressResponse = await getAxiosInstance().get(`/api/progress`);
             const currentMatchId = progressResponse.data?.matchId;
 
             if (!currentMatchId) {
@@ -299,13 +298,13 @@ const Adminpage: React.FC = () => {
             setCurrentIndex(index);
 
             //❤️ 해당 matchId로 점수 및 심판 불러오기
-            const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`, {
+            const scoresResponse = await getAxiosInstance().get(`/api/scores/by-match`, {
                 params: { matchId: currentMatchId },
               });
             const roundScoresFromServer = scoresResponse.data;
 
             //❤️ 현재 matchId로 심판 목록 가져오기(경기에 맞는 심판)
-            const judgesResponse = await axios.get(`${baseURL}/api/judges/current`, {
+            const judgesResponse = await getAxiosInstance().get(`/api/judges/current`, {
                 params: {matchId: currentMatchId},
             });
             const judgeList = judgesResponse.data;
@@ -357,7 +356,7 @@ const Adminpage: React.FC = () => {
         
     
         try {
-            await axios.post(`${baseURL}/api/matches/upload`, formData, {
+            await getAxiosInstance().post(`/api/matches/upload`, formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             });
 
@@ -412,7 +411,7 @@ const Adminpage: React.FC = () => {
 
         try {
             const currentMatch = matches[currentIndex];
-            const response = await axios.post(`${baseURL}/api/progress/next`, null, {
+            const response = await getAxiosInstance().post(`/api/progress/next`, null, {
                 params: { currentMatchId: currentMatch.id },
             });
         
@@ -421,9 +420,9 @@ const Adminpage: React.FC = () => {
       
             if (nextMatchId) {
               const [matchesRes, roundsRes, judgesRes] = await Promise.all([
-                axios.get(`${baseURL}/api/matches`),
-                axios.get(`${baseURL}/api/rounds/match/${nextMatchId}`),
-                axios.get(`${baseURL}/api/judges/current`, {
+                getAxiosInstance().get(`/api/matches`),
+                getAxiosInstance().get(`/api/rounds/match/${nextMatchId}`),
+                getAxiosInstance().get(`/api/judges/current`, {
                     params:{matchId: nextMatchId},
                 }),
               ]);
@@ -507,7 +506,7 @@ const Adminpage: React.FC = () => {
             const currentMatch = matches[currentIndex];
 
             //🔴 서버에 심판 이름 + 비밀번호 + matchId 보내기
-            const response = await axios.post(`${baseURL}/api/judge-access/generate-qr`, {
+            const response = await getAxiosInstance().post(`/api/judge-access/generate-qr`, {
                 matchId: currentMatch.id,
                 password,
                 judgeNames: judgeName,
@@ -520,7 +519,7 @@ const Adminpage: React.FC = () => {
             console.log("✅ 생성된 심판별 QR 리스트:", judgeQRList);
 
             //🔴 match_progress 테이블 생성 요청
-            await axios.post(`${baseURL}/api/progress/start`, null, {
+            await getAxiosInstance().post(`/api/progress/start`, null, {
                 params: {
                     matchId: currentMatch.id,
                     judgeCount: judgeCount
@@ -546,7 +545,7 @@ const Adminpage: React.FC = () => {
 
         try{
             //🔴 서버에 초기화 요청
-            await axios.post(`${baseURL}/api/progress/end`);
+            await getAxiosInstance().post(`/api/progress/end`);
 
                 localStorage.removeItem("match-storage");
                 localStorage.removeItem("qr-store");

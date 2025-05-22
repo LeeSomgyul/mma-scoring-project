@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import SockJS from "sockjs-client";
-import axios from "axios";
+import getAxiosInstance from "../api/axiosInstance";
 import { Client } from "@stomp/stompjs";
 import { useSearchParams } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid'; 
@@ -44,7 +44,6 @@ const JudgePage: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [lastFetchedMatchId, setLastFetchedMatchId] = useState<number | null>(null);
   //✅ 전역 변수
-  const baseURL = import.meta.env.VITE_API_BASE_URL;
   const accessCode = searchParams.get("accessCode");
   const navigate = useNavigate();
 
@@ -96,7 +95,7 @@ const JudgePage: React.FC = () => {
 
       console.log("📦 score 요청 시 matchId:", matchInfo?.id);
 
-      axios.get(`${baseURL}/api/scores/by-match`, {
+      getAxiosInstance().get(`/api/scores/by-match`, {
         params: {matchId: matchInfo.id }
       })
       .then(response => {
@@ -261,7 +260,7 @@ const JudgePage: React.FC = () => {
       }
   
       //🔴 1. 전체 경기 목록 가져오기
-      const matchesResponse = await axios.get(`${baseURL}/api/matches`);
+      const matchesResponse = await getAxiosInstance().get(`/api/matches`);
       const matches = matchesResponse.data;
       setMatches(matches);
   
@@ -271,7 +270,7 @@ const JudgePage: React.FC = () => {
       }
 
       //🔴 2. 현재 진행중인 matchId 가져오기
-      const progressResponse = await axios.get(`${baseURL}/api/progress`);
+      const progressResponse = await getAxiosInstance().get(`/api/progress`);
       const currentMatchId = progressResponse.data?.matchId;
 
       if (!currentMatchId) {
@@ -287,7 +286,7 @@ const JudgePage: React.FC = () => {
       }
   
       //🔴 4. 해당 경기의 라운드 정보 가져오기
-      const roundsResponse = await axios.get(`${baseURL}/api/rounds/match/${currentMatchId}`);
+      const roundsResponse = await getAxiosInstance().get(`/api/rounds/match/${currentMatchId}`);
       const rounds = roundsResponse.data;
   
       setMatchInfo({
@@ -296,7 +295,7 @@ const JudgePage: React.FC = () => {
       });
   
       //🔴 5. 점수 가져오기 (내 점수만 추출)
-      const scoresResponse = await axios.get(`${baseURL}/api/scores/by-match`, {
+      const scoresResponse = await getAxiosInstance().get(`/api/scores/by-match`, {
         params: { matchId: currentMatchId },
       });
       const roundScoresFromServer = scoresResponse.data;
@@ -350,7 +349,7 @@ const JudgePage: React.FC = () => {
     }
 
     try{
-      const response = await axios.post(`${baseURL}/api/judge-access/verify`, {
+      const response = await getAxiosInstance().post(`/api/judge-access/verify`, {
         password: inputPassword,
         accessCode
       });
@@ -370,7 +369,7 @@ const JudgePage: React.FC = () => {
 
         let judgeResponse;
         try{
-          judgeResponse = await axios.post(`${baseURL}/api/judges`, null, {
+          judgeResponse = await getAxiosInstance().post(`/api/judges`, null, {
             params: {
               deviceId,
               matchId,

@@ -1,4 +1,3 @@
-import React from "react";
 import BackgroundLayout from "../components/BackgroundLayout";
 
 const JudgeEndPage = () => {
