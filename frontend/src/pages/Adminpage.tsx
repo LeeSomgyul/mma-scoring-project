@@ -713,7 +713,6 @@ const Adminpage: React.FC = () => {
         {roundScores.map((round, index) => {
           const redSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.red ?? 0), 0);
           const blueSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.blue ?? 0), 0);
-          const allSubmitted = round.judges.length > 0 && round.judges.every(j => j.submitted);
 
           return (
             <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
@@ -725,19 +724,19 @@ const Adminpage: React.FC = () => {
               </div>
               <div
                 className={`flex items-center justify-center bg-white border border-gray-300 ${
-                  allSubmitted && redSum > blueSum ? 'font-bold' : 'font-normal'
+                  redSum > blueSum ? 'font-bold' : 'font-normal'
                 }`}
                 style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
               >
-                {allSubmitted ? redSum : "-"}
+                {redSum || "-"}
               </div>
               <div
                 className={`flex items-center justify-center bg-white border border-gray-300 ${
-                  allSubmitted && blueSum > redSum ? 'font-bold' : 'font-normal'
+                  blueSum > redSum ? 'font-bold' : 'font-normal'
                 }`}
                 style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
               >
-                {allSubmitted ? blueSum : "-"}
+                {blueSum || "-"}
               </div>
               <div
                 className="flex items-center justify-center px-2 py-2 text-sm bg-gray-100 border border-gray-300"
