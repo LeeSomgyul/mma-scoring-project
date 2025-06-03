@@ -37,13 +37,16 @@ public class ScoresService {
         //🔴 심판이 점수 수정 했을 시(점수가 이미 들어와 있는지 확인)
         Optional<Scores> existing = scoresRepository.findByRounds_IdAndJudges_Id(round.getId(), judge.getId());
 
+        //🔴 점수 취소 여부 판단
         Scores scores;
+        boolean isCancellation = (redScore == 0 && blueScore == 0);
+
         if(existing.isPresent()) {
             //🔴 만약 이미 점수 있으면 기존 점수 수정
             scores = existing.get();
             scores.setRedScore(redScore);
             scores.setBlueScore(blueScore);
-            scores.setSubmitted(true);
+            scores.setSubmitted(!isCancellation);
             scores.setEditable(true);
         }else{
             //🔴 만약 처음이면 새로운 점수 저장
@@ -52,7 +55,7 @@ public class ScoresService {
                     .judges(judge)
                     .redScore(redScore)
                     .blueScore(blueScore)
-                    .isSubmitted(true)
+                    .isSubmitted(!isCancellation)
                     .submittedAt(LocalDateTime.now())
                     .isEditable(true)
                     .build();
@@ -77,10 +80,23 @@ public class ScoresService {
         int submittedCount = submittedJudges.size();
         int totalJudgeCount = judgesRepository.countByIsConnectedTrue();
 
+        //🔴 심판이 점수 취소한 경우
+        if(isCancellation) {
+            Map<String, Object> cancelMessage = Map.of(
+                    "status", "CANCELLED",
+                    "roundId", roundId,
+                    "roundNumber", round.getRoundNumber(),
+                    "judgeName", judge.getName(),
+                    "submittedJudges", submittedJudges
+            );
+            webSocketSender.sendMessage(cancelMessage);
+            return Optional.of(cancelMessage);
+        }
+
         //🔴 심판 전원이 제출했을 경우에만 합산 점수 반환
         if(submittedCount == totalJudgeCount) {
-            int totalRed = all.stream().mapToInt(Scores::getRedScore).sum();
-            int totalBlue = all.stream().mapToInt(Scores::getBlueScore).sum();
+            int totalRed = all.stream().filter(Scores::isSubmitted).mapToInt(Scores::getRedScore).sum();
+            int totalBlue = all.stream().filter(Scores::isSubmitted).mapToInt(Scores::getBlueScore).sum();
 
             Map<String, Object> result = Map.of(
                     "status", "COMPLETE",

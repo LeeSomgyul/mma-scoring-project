@@ -114,6 +114,41 @@ const Adminpage: React.FC = () => {
                             const parsed = JSON.parse(message.body);
                             console.log("✅ 받은 점수 전체 메시지:", parsed);
                             
+                            //🔴 심판이 점수를 취소하면
+                            if(parsed.status === "CANCELLED"){
+                                const roundId = Number(parsed.roundId);
+                                const judgeName = parsed.judgeName?.trim(); 
+                                const submittedJudges = parsed.submittedJudges ?? [];
+
+                                setRoundScores(prev =>
+                                    prev.map(round => {
+                                        if (round.roundId !== roundId) return round;
+                                        
+                                        const updatedJudges = round.judges.map(j => {
+                                            if (j.judgeName?.trim() === judgeName) {
+                                                return { 
+                                                    ...j, 
+                                                    red: null, 
+                                                    blue: null, 
+                                                    submitted: false, 
+                                                    isConnected: j.isConnected 
+                                                };
+                                            }
+                                        
+                                            const found = submittedJudges.find((s: { name: string; red: number; blue: number }) => s.name.trim() === j.judgeName?.trim());
+                                            return found 
+                                                ? { ...j, submitted: true, red: found.red, blue: found.blue, isConnected: j.isConnected }
+                                                : { ...j, isConnected: j.isConnected };
+                                        });
+                                        
+                                        return { ...round, judges: updatedJudges };
+                                    })
+                                );
+                            
+                            setScoreStatus("⏳ 점수 대기 중...");
+                            return;
+                            }
+
                             //🔴 심판이 점수 '수정중' 상태라면
                             if (parsed.status === "MODIFIED") {
                                 const roundId = Number(parsed.roundId);

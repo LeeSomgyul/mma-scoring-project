@@ -19,6 +19,7 @@ interface MyScore {
   red: string;
   blue: string;
   submitted: boolean;
+  winner?: "red" | "blue";
 }
 
 //✅ UUID생성 + 저장 함수
@@ -93,8 +94,6 @@ const JudgePage: React.FC = () => {
 
       if(!deviceId) return;
 
-      console.log("📦 score 요청 시 matchId:", matchInfo?.id);
-
       getAxiosInstance().get(`/api/scores/by-match`, {
         params: {matchId: matchInfo.id }
       })
@@ -102,14 +101,23 @@ const JudgePage: React.FC = () => {
         const myScores: MyScore[] = response.data.map((round: any) => {
           const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
 
+          let winner: "red" | "blue" | undefined = undefined;
+          if (myScore?.submitted) {
+            const red = parseInt(myScore.red?.toString() ?? "0");
+            const blue = parseInt(myScore.blue?.toString() ?? "0");
+            if (red > 0) winner = "red";
+            else if (blue > 0) winner = "blue";
+          }
+
           return{
             red: myScore?.red?.toString() ?? "",
             blue: myScore?.blue?.toString() ?? "",
             submitted: myScore?.submitted ?? false,
+            winner,
           };
         });
 
-        const scores = myScores.map((s) => ({ red: s.red, blue: s.blue }));
+        const scores = myScores.map((s) => ({ red: s.red, blue: s.blue, winner: s.winner }));
         const submitted = myScores.map((s) => s.submitted);
         const editing = submitted.map((s, i) => {
           if (i === 0) return !submitted[0];
@@ -301,14 +309,24 @@ const JudgePage: React.FC = () => {
       const roundScoresFromServer = scoresResponse.data;
       const myScores: MyScore[] = roundScoresFromServer.map((round: any) => {
         const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
+
+        let winner: "red" | "blue" | undefined = undefined;
+        if (myScore?.submitted) {
+          const red = parseInt(myScore.red?.toString() ?? "0");
+          const blue = parseInt(myScore.blue?.toString() ?? "0");
+          if (red > 0) winner = "red";
+          else if (blue > 0) winner = "blue";
+        }
+
         return {
           red: myScore?.red?.toString() ?? "",
           blue: myScore?.blue?.toString() ?? "",
           submitted: myScore?.submitted ?? false,
+          winner,
         };
       });
   
-      const scores = myScores.map((s) => ({ red: s.red, blue: s.blue }));
+      const scores = myScores.map((s) => ({ red: s.red, blue: s.blue, winner: s.winner }));
       const submitted = myScores.map((s) => s.submitted);
       const editing = submitted.map((s, i) => {
         if (i === 0) return !submitted[0];
@@ -409,96 +427,152 @@ const JudgePage: React.FC = () => {
 
   
 
-  // ✅ 점수 입력
-  const handleScoreChange = (
-    roundIndex: number,
-    color: "red" | "blue",
-    value: string
-  ) => {
-    if (!/^\d*$/.test(value)) {
-      alert("숫자만 입력해주세요!");
-      return;
-    }
+  // ✅ 점수 전송
+  // ✅ 점수 전송
+const handleScoreSubmit = (roundIndex: number, team: "red" | "blue") => {
+  const currentScore = scores[roundIndex];
+  const currentWinner = currentScore?.winner;
 
-    const newScores = scores.map((score, i) => 
-      i === roundIndex ? {...score, [color]: value}: score
-    );
+  // 🔴 이미 전송된 버튼을 다시 누르면: 점수 취소
+  if(currentWinner === team) {
+    const confirmCancel = window.confirm("점수를 취소하시겠습니까?");
+    
+    if(!confirmCancel) return;
 
-    setScores(newScores);
-    useJudgeScoreStore.setState({ 
-      scores: newScores,
-      submitted: [...submitted],
+    // ✅ 서버에 취소 정보 전송 (0점으로 업데이트)
+    sendCancelToServer(roundIndex);
+    return;
+  }
+
+  // 🔴 새로운 점수 전송
+  sendScoreToServer(roundIndex, team);
+};
+
+// ✅ 취소를 서버에 전송하는 함수
+const sendCancelToServer = (roundIndex: number) => {
+  const deviceId = localStorage.getItem("judgeDeviceId");
+  if (!deviceId) {
+    alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
+    return;
+  }
+
+  if (!matchInfo || !matchInfo.rounds || !matchInfo.rounds[roundIndex]) {
+    alert("❌ 경기 정보가 올바르지 않습니다. 새로고침 후 다시 시도해주세요.");
+    return;
+  }
+
+  const roundId = matchInfo.rounds[roundIndex].id;
+  if (!roundId) {
+    alert("❌ 라운드 정보가 누락되었습니다. 관리자에게 문의하세요.");
+    return;
+  }
+
+  //🔴 취소: 둘 다 0점으로 서버에 전송
+  const result = {
+    roundId,
+    redScore: "0",
+    blueScore: "0", 
+    judgeId: deviceId,
+  };
+
+  if (stompClient && stompClient.connected) {
+    //🔴 서버에 0점 전송
+    stompClient.publish({
+      destination: "/app/send",
+      body: JSON.stringify(result),
+    });
+
+    //🔴 로컬 상태 업데이트
+    const resetScores = [...scores];
+    resetScores[roundIndex] = { red: "0", blue: "0" };
+    
+    const resetSubmitted = [...submitted];
+    resetSubmitted[roundIndex] = false;
+
+    setScores(resetScores);
+    setSubmitted(resetSubmitted);
+    
+    useJudgeScoreStore.setState({
+      scores: resetScores,
+      submitted: resetSubmitted,
       editing: [...editing],
       currentRoundIndex,
     });
+
+    alert("점수가 취소되었습니다.");
+  } else {
+    alert("❌ 서버와 연결되지 않았습니다.");
+  }
+};
+
+// ✅ 정상 점수를 서버에 전송하는 함수
+const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
+  const deviceId = localStorage.getItem("judgeDeviceId");
+  if (!deviceId) {
+    alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
+    return;
+  }
+
+  if (!matchInfo || !matchInfo.rounds || !matchInfo.rounds[roundIndex]) {
+    alert("❌ 경기 정보가 올바르지 않습니다. 새로고침 후 다시 시도해주세요.");
+    return;
+  }
+
+  const roundId = matchInfo.rounds[roundIndex].id;
+  if (!roundId) {
+    alert("❌ 라운드 정보가 누락되었습니다. 관리자에게 문의하세요.");
+    return;
+  }
+
+  // 🔴 점수 설정
+  const redScore = team === "red" ? "1" : "0";
+  const blueScore = team === "blue" ? "1" : "0";
+
+  const result = {
+    roundId,
+    redScore,
+    blueScore,
+    judgeId: deviceId,
   };
 
-  // ✅ 점수 전송
-  const handleSubmit = (roundIndex: number) => {
-    const { red, blue } = scores[roundIndex];
+  if (stompClient && stompClient.connected) {
+    stompClient.publish({
+      destination: "/app/send",
+      body: JSON.stringify(result),
+    });
 
-    if (red === "" || blue === "") {
-      alert("점수를 모두 입력해주세요!");
-      return;
-    }
-
-    const deviceId = localStorage.getItem("judgeDeviceId");
-    if (!deviceId) {
-      alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
-      return;
-    }
-
-    if (!matchInfo || !matchInfo.rounds || !matchInfo.rounds[roundIndex]) {
-      alert("❌ 경기 정보가 올바르지 않습니다. 새로고침 후 다시 시도해주세요.");
-      return;
-    }
-  
-    const roundId = matchInfo.rounds[roundIndex].id;
-    if (!roundId) {
-      alert("❌ 라운드 정보가 누락되었습니다. 관리자에게 문의하세요.");
-      return;
-    }
-
-    
-    const result = {
-      roundId,
-      redScore: parseInt(red),
-      blueScore: parseInt(blue),
-      judgeId: deviceId,
+    const newScores = [...scores];
+    newScores[roundIndex] = {
+      red: redScore,
+      blue: blueScore,
+      winner: team,
     };
 
-    if (stompClient && stompClient.connected) {
-      stompClient.publish({
-        destination: "/app/send",
-        body: JSON.stringify(result),
-      });
+    const newSubmitted = [...submitted];
+    const newEditing = [...editing];
+    newSubmitted[roundIndex] = true;
+    newEditing[roundIndex] = false;
 
-      const newScores = scores.map((score, i) => ({...score}));
-      const newSubmitted = [...submitted];
-      const newEditing = [...editing];
+    setScores(newScores);
+    setSubmitted(newSubmitted);
+    setEditing(newEditing);
 
-      newSubmitted[roundIndex] = true;
-      newEditing[roundIndex] = false;
+    useJudgeScoreStore.setState({
+      scores: newScores,
+      submitted: newSubmitted,
+      editing: newEditing,
+      currentRoundIndex,
+    });
 
-      //🔴 zustand에 저장
-      useJudgeScoreStore.setState({
-        scores: newScores,
-        submitted: newSubmitted,
-        editing: newEditing,
-        currentRoundIndex,
-      });
+    alert("전송 완료!");
+  } else {
+    alert("❌ 서버와 연결되지 않았습니다.");
+  }
+};
 
-      setScores(newScores);
-      setSubmitted(newSubmitted);
-      setEditing(newEditing);
 
-      alert(submitted[roundIndex] ? "수정 완료!" : "전송 완료!");
-    } else {
-      alert("❌ 서버와 연결되지 않았습니다.");
-    }
-  };
-
-  // ✅ 수정 버튼
+  {/*
+    // ✅ 수정 버튼
   const handleEdit = (roundIndex: number) => {
     const newScores = scores.map((score) => ({...score}));
     const newSubmitted = [...submitted];
@@ -538,6 +612,8 @@ const JudgePage: React.FC = () => {
       });
     }
   };
+  */}
+  
 
   //✅ 경기 종료 시 로컬스토리지 초기화 버튼
   const handleOut = () => {
@@ -599,7 +675,7 @@ const JudgePage: React.FC = () => {
               </span>
             </div>
             <div className="w-full overflow-hidden rounded shadow-md">
-              <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] font-bold text-white text-center">
+              <div className="grid grid-cols-[0.6fr_1fr_1fr] font-bold text-white text-center">
                 <div />
                 <div className="flex items-center justify-center bg-red-600 border border-gray-300"
                   style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(10vh, 70px)" }}>
@@ -613,32 +689,43 @@ const JudgePage: React.FC = () => {
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: "min(37vh, 400px)", scrollbarWidth: "none" }}>
                 {Array.from({ length: matchInfo.roundCount }, (_, i) => (
-                  <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
+                  <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr] text-center border border-gray-300">
                     <div className="flex items-center justify-center font-bold bg-gray-100 border"
                       style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(12vh, 70px)" }}>
                       {i + 1}R
                     </div>
+                    {/* '레드 우세' 버튼 */}
                     <div className="flex items-center justify-center bg-white border">
-                      <input type="text" inputMode="numeric" pattern="\d*" placeholder="점수"
-                        value={scores[i]?.red ?? ""}
-                        onChange={(e) => handleScoreChange(i, "red", e.target.value)}
-                        disabled={!editing[i]}
-                        className="w-full h-full font-semibold text-center bg-transparent border-none outline-none"
-                        style={{ fontSize: "clamp(16px, 3vw, 24px)" }} />
+                      <button
+                        onClick={() => handleScoreSubmit(i, "red")}
+                        className={`w-full h-full font-bold transition-colors duration-200 ${
+                          scores[i]?.winner === "red"
+                            ? "bg-red-600 text-white hover:bg-red-700 cursor-pointer"
+                            : scores[i]?.winner === "blue"
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-white text-red-600 border-2 border-red-600 hover:bg-red-50 cursor-pointer"
+                        }`}
+                        style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
+                      >
+                       레드 우세  
+                      </button>
                     </div>
+
+                    {/* '블루 우세' 버튼 */}
                     <div className="flex items-center justify-center bg-white border">
-                      <input type="text" inputMode="numeric" pattern="\d*" placeholder="점수"
-                        value={scores[i]?.blue ?? ""}
-                        onChange={(e) => handleScoreChange(i, "blue", e.target.value)}
-                        disabled={!editing[i]}
-                        className="w-full h-full font-semibold text-center bg-transparent border-none outline-none"
-                        style={{ fontSize: "clamp(16px, 3vw, 24px)" }} />
-                    </div>
-                    <div onClick={() => submitted[i] && !editing[i] ? handleEdit(i) : handleSubmit(i)}
-                      className={`flex items-center justify-center font-bold text-white cursor-pointer border
-                        ${submitted[i] && !editing[i] ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"}`}
-                      style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(12vh, 70px)" }}>
-                      {submitted[i] && !editing[i] ? "수정" : submitted[i] ? "재전송" : "전송"}
+                      <button
+                        onClick={() => handleScoreSubmit(i, "blue")}
+                        className={`w-full h-full font-bold transition-colors duration-200 ${
+                          scores[i]?.winner === "blue"
+                            ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                            : scores[i]?.winner === "red"
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 cursor-pointer"
+                        }`}
+                        style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
+                      >
+                       블루 우세  
+                      </button>
                     </div>
                   </div>
                 ))}

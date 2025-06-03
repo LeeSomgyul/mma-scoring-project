@@ -5,6 +5,7 @@ import { create } from 'zustand';
 interface Score {
   red: string;
   blue: string;
+  winner?: "red" | "blue";
 }
 
 interface JudgeScoreState {
