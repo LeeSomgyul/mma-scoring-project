@@ -669,11 +669,19 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue" | "draw") =>
                 <div />
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: "min(37vh, 400px)", scrollbarWidth: "none" }}>
-                {Array.from({ length: matchInfo.roundCount }, (_, i) => (
-                  <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr_1fr] text-center border border-gray-300">
+                {Array.from({ length: matchInfo.roundCount }, (_, i) => {
+
+                  //🔴마지막 라운드인지 확인
+                  const isLastRound = i === matchInfo.roundCount - 1;                  
+
+                  return(
+                    <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr_1fr] text-center border border-gray-300">
                     <div className="flex items-center justify-center font-bold bg-gray-100 border"
-                      style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(12vh, 70px)" }}>
-                      {i + 1}R
+                      style={{
+                        fontSize: isLastRound ? "clamp(20px, 4vw, 32px)" : "clamp(16px, 3vw, 24px)",
+                        height: "min(12vh, 70px)" 
+                      }}>
+                      {isLastRound ? "최종" : `${i + 1}R`}
                     </div>
                     {/* '레드 우세' 버튼 */}
                     <div className="flex items-center justify-center bg-white border">
@@ -686,9 +694,12 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue" | "draw") =>
                               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                               : "bg-white text-red-600 border-2 border-red-600 hover:bg-red-50 cursor-pointer"
                         }`}
-                        style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
+                        style={{
+                          fontSize: isLastRound ? "clamp(16px, 3vw, 24px)" : "clamp(14px, 2.5vw, 20px)",
+                          height: "min(12vh, 70px)"
+                        }}
                       >
-                       레드 우세  
+                       {isLastRound ? "레드승리" : "레드 우세"}
                       </button>
                     </div>
 
@@ -703,9 +714,12 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue" | "draw") =>
                               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                               : "bg-white text-black border-2 border-black hover:bg-gray-50 cursor-pointer"
                         }`}
-                        style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
+                        style={{
+                          fontSize: isLastRound ? "clamp(16px, 3vw, 24px)" : "clamp(14px, 2.5vw, 20px)",
+                          height: "min(12vh, 70px)"
+                        }}
                       >
-                      동점  
+                      {isLastRound ? "무승부" : "동점"}
                       </button>
                     </div>
 
@@ -720,13 +734,17 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue" | "draw") =>
                               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                               : "bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 cursor-pointer"
                         }`}
-                        style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
+                        style={{
+                          fontSize: isLastRound ? "clamp(16px, 3vw, 24px)" : "clamp(14px, 2.5vw, 20px)",
+                          height: "min(12vh, 70px)"
+                        }}
                       >
-                       블루 우세  
+                       {isLastRound ? "블루승리" : "블루 우세"} 
                       </button>
                     </div>
                   </div>
-                ))}
+                );  
+              })}
               </div>
             </div>
             <div className="fixed z-30 flex items-center space-x-4 top-7 right-6">

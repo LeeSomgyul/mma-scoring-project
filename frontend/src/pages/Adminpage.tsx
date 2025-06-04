@@ -796,30 +796,42 @@ const Adminpage: React.FC = () => {
         {roundScores.map((round, index) => {
           const redSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.red ?? 0), 0);
           const blueSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.blue ?? 0), 0);
-
           const hasSubmittedJudges = round.judges.some(j => j.submitted);
+
+          const isLastRound = index === roundScores.length -1;
 
           return (
             <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
               <div
                 className="flex items-center justify-center font-bold bg-gray-100 border border-gray-300"
-                style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+                style={{
+                    fontSize: isLastRound ? `clamp(24px, 4vw, 32px)` : `clamp(20px, 3vw, 28px)`, 
+                    height: `min(12vh, 70px)`
+                }}
               >
-                {round.roundNumber}R
+                {isLastRound ? "최종" : `${round.roundNumber}R`}
               </div>
               <div
                 className={`flex items-center justify-center bg-white border border-gray-300 ${
+                  isLastRound && redSum > blueSum ? 'border-8 border-red-500 font-bold' : 
                   redSum > blueSum ? 'font-bold' : 'font-normal'
                 }`}
-                style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+                style={{
+                    fontSize: isLastRound ? `clamp(24px, 4vw, 32px)` : `clamp(20px, 3vw, 28px)`, 
+                    height: `min(12vh, 70px)`
+                }}
               >
                 {hasSubmittedJudges ? redSum : "0"}
               </div>
               <div
                 className={`flex items-center justify-center bg-white border border-gray-300 ${
+                  isLastRound && blueSum > redSum ? 'border-8 border-red-500 font-bold' : 
                   blueSum > redSum ? 'font-bold' : 'font-normal'
                 }`}
-                style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
+                style={{
+                    fontSize: isLastRound ? `clamp(24px, 4vw, 32px)` : `clamp(20px, 3vw, 28px)`, 
+                    height: `min(12vh, 70px)`
+                }}
               >
                 {hasSubmittedJudges ? blueSum : "0"}
               </div>
@@ -864,33 +876,6 @@ const Adminpage: React.FC = () => {
             </div>
           );
         })}
-      </div>
-
-      {/* 합계 */}
-      <div className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center font-bold border border-gray-300">
-        <div
-          className="flex items-center justify-center border border-gray-300 bg-lime-300"
-          style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
-        >
-          합계
-        </div>
-        <div
-          className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
-            redTotal > blueTotal ? 'border-8 border-red-500' : ''
-          }`}
-          style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
-        >
-          {redTotal}
-        </div>
-        <div
-          className={`flex items-center justify-center text-lg bg-white border border-gray-300 ${
-            blueTotal > redTotal ? 'border-8 border-red-500' : ''
-          }`}
-          style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
-        >
-          {blueTotal}
-        </div>
-        <div className="bg-gray-100 border border-gray-300"></div>
       </div>
     </div>
   </div>
