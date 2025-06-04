@@ -28,7 +28,7 @@ public class ScoresService {
     private final WebSocketSender webSocketSender;
 
     //✅ 심판이 전송한 점수를 저장하는 기능
-    public Optional<Map<String, Object>> saveScore(Long roundId, String judgeDeviceId, int redScore, int blueScore) {
+    public Optional<Map<String, Object>> saveScore(Long roundId, String judgeDeviceId, int redScore, int blueScore, boolean isCancellation) {
         Rounds round = roundsRepository.findById(roundId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 라운드를 찾을 수 없습니다."));
         Judges judge = judgesRepository.findByDeviceId(judgeDeviceId)
@@ -37,16 +37,17 @@ public class ScoresService {
         //🔴 심판이 점수 수정 했을 시(점수가 이미 들어와 있는지 확인)
         Optional<Scores> existing = scoresRepository.findByRounds_IdAndJudges_Id(round.getId(), judge.getId());
 
-        //🔴 점수 취소 여부 판단
+        //🔴 취소 여부 판단
+        boolean isActualCancellation = isCancellation;
+
         Scores scores;
-        boolean isCancellation = (redScore == 0 && blueScore == 0);
 
         if(existing.isPresent()) {
             //🔴 만약 이미 점수 있으면 기존 점수 수정
             scores = existing.get();
             scores.setRedScore(redScore);
             scores.setBlueScore(blueScore);
-            scores.setSubmitted(!isCancellation);
+            scores.setSubmitted(!isActualCancellation);
             scores.setEditable(true);
         }else{
             //🔴 만약 처음이면 새로운 점수 저장
@@ -55,7 +56,7 @@ public class ScoresService {
                     .judges(judge)
                     .redScore(redScore)
                     .blueScore(blueScore)
-                    .isSubmitted(!isCancellation)
+                    .isSubmitted(!isActualCancellation)
                     .submittedAt(LocalDateTime.now())
                     .isEditable(true)
                     .build();
@@ -81,7 +82,7 @@ public class ScoresService {
         int totalJudgeCount = judgesRepository.countByIsConnectedTrue();
 
         //🔴 심판이 점수 취소한 경우
-        if(isCancellation) {
+        if(isActualCancellation) {
             Map<String, Object> cancelMessage = Map.of(
                     "status", "CANCELLED",
                     "roundId", roundId,

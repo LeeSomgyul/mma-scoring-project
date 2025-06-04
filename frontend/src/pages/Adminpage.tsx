@@ -203,13 +203,21 @@ const Adminpage: React.FC = () => {
                                         if (round.roundId !== roundId) return round;
                                         const updatedJudges = round.judges.map(j => {
                                             const found = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
-                                            return found
-                                            ? { ...j, submitted: true, red: found.red, blue: found.blue, isConnected: j.isConnected }
-                                            : {...j, isConnected: j.isConnected};
+                                            if (found) {
+                                                return { 
+                                                    ...j, 
+                                                    submitted: true, 
+                                                    red: found.red, 
+                                                    blue: found.blue, 
+                                                    isConnected: j.isConnected 
+                                                };
+                                            }
+                                            return {...j, isConnected: j.isConnected};
                                         });
                                         return { ...round, judges: updatedJudges };
                                     })
                                 );
+                                setScoreStatus("⏳ 일부 심판 전송 완료...");
                             }
                             
                             if (parsed.status === "COMPLETE") {
@@ -222,15 +230,55 @@ const Adminpage: React.FC = () => {
     
                                         const updatedJudges = round.judges.map(j => {
                                             const match = submittedJudges.find(s => s.name.trim() === j.judgeName.trim());
-                                            return match
-                                            ? { ...j, submitted: true, red: match.red, blue: match.blue, isConnected: j.isConnected }
-                                            : { ...j, isConnected: j.isConnected };
+                                            if (match) {
+                                                return { 
+                                                    ...j, 
+                                                    submitted: true, 
+                                                    red: match.red, 
+                                                    blue: match.blue, 
+                                                    isConnected: j.isConnected 
+                                                };
+                                            }
+                                            return { ...j, isConnected: j.isConnected };
                                         });
                                         return { ...round, judges: updatedJudges };
                                     })
                                 );
                             
                                 setScoreStatus("✅ 합산 완료!");
+                            }
+                            //🔴동점 전송 케이스
+                            if (parsed.status === "DRAW_SUBMITTED") {
+                                const roundId = Number(parsed.roundId);
+                                const judgeName = parsed.judgeName?.trim();
+                                const submittedJudges = parsed.submittedJudges ?? [];
+
+                                setRoundScores(prev =>
+                                    prev.map(round => {
+                                        if (round.roundId !== roundId) return round;
+                                        
+                                        const updatedJudges = round.judges.map(j => {
+                                            if (j.judgeName?.trim() === judgeName) {
+                                                return { 
+                                                    ...j, 
+                                                    red: 0, 
+                                                    blue: 0, 
+                                                    submitted: true,
+                                                    isConnected: j.isConnected 
+                                                };
+                                            }
+                                            
+                                            const found = submittedJudges.find((s: { name: string; red: number; blue: number }) => s.name.trim() === j.judgeName?.trim());
+                                            return found 
+                                                ? { ...j, submitted: true, red: found.red, blue: found.blue, isConnected: j.isConnected }
+                                                : { ...j, isConnected: j.isConnected };
+                                        });
+                                        
+                                        return { ...round, judges: updatedJudges };
+                                    })
+                                );
+                                
+                                setScoreStatus("✅ 동점 전송 완료!");
                             }
     
                         }catch(e){
@@ -749,6 +797,8 @@ const Adminpage: React.FC = () => {
           const redSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.red ?? 0), 0);
           const blueSum = round.judges.filter(j => j.submitted).reduce((acc, j) => acc + (j.blue ?? 0), 0);
 
+          const hasSubmittedJudges = round.judges.some(j => j.submitted);
+
           return (
             <div key={round.roundId} className="grid grid-cols-[0.6fr_1fr_1fr_0.9fr] text-center border border-gray-300">
               <div
@@ -763,7 +813,7 @@ const Adminpage: React.FC = () => {
                 }`}
                 style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
               >
-                {redSum || "-"}
+                {hasSubmittedJudges ? redSum : "0"}
               </div>
               <div
                 className={`flex items-center justify-center bg-white border border-gray-300 ${
@@ -771,7 +821,7 @@ const Adminpage: React.FC = () => {
                 }`}
                 style={{ fontSize: `clamp(20px, 3vw, 28px)`, height: `min(12vh, 70px)` }}
               >
-                {blueSum || "-"}
+                {hasSubmittedJudges ? blueSum : "0"}
               </div>
               <div
                 className="flex items-center justify-center px-2 py-2 text-sm bg-gray-100 border border-gray-300"

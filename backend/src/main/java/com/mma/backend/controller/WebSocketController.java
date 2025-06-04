@@ -59,7 +59,15 @@ public class WebSocketController {
                 return;
             }
 
-            scoresService.saveScore(roundId, judgeDeviceId, redScore, blueScore);
+            //🔴 우세, 동점 취소 여부 확인
+            boolean isCancellation = scoreInfo.containsKey("isCancellation")
+                    ? Boolean.parseBoolean(scoreInfo.get("isCancellation").toString())
+                    : false;
+
+            log.info("🟢 점수 처리: judgeId={}, roundId={}, red={}, blue={}, isCancellation={}",
+                    judgeDeviceId, roundId, redScore, blueScore, isCancellation);
+
+            scoresService.saveScore(roundId, judgeDeviceId, redScore, blueScore, isCancellation);
 
         }catch(Exception e){
             log.error("❌ 점수 처리 중 오류 발생:", e);

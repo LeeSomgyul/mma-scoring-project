@@ -75,4 +75,5 @@ public class WebSocketSender {
         log.info("📤 점수 수정됨 → 본부에 전송: {}", message);
     }
 
+
 }

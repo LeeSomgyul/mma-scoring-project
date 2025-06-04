@@ -19,7 +19,7 @@ interface MyScore {
   red: string;
   blue: string;
   submitted: boolean;
-  winner?: "red" | "blue";
+  winner?: "red" | "blue" | "draw";
 }
 
 //✅ UUID생성 + 저장 함수
@@ -101,12 +101,18 @@ const JudgePage: React.FC = () => {
         const myScores: MyScore[] = response.data.map((round: any) => {
           const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
 
-          let winner: "red" | "blue" | undefined = undefined;
-          if (myScore?.submitted) {
+          let winner: "red" | "blue" | "draw" | undefined = undefined;
+
+          if (myScore?.submitted === true) {
             const red = parseInt(myScore.red?.toString() ?? "0");
             const blue = parseInt(myScore.blue?.toString() ?? "0");
-            if (red > 0) winner = "red";
-            else if (blue > 0) winner = "blue";
+            if (red > 0) {
+              winner = "red";
+            } else if (blue > 0) {
+              winner = "blue";
+            } else if (red === 0 && blue === 0) {
+              winner = "draw";
+            }
           }
 
           return{
@@ -310,12 +316,17 @@ const JudgePage: React.FC = () => {
       const myScores: MyScore[] = roundScoresFromServer.map((round: any) => {
         const myScore = round.judges.find((judge: any) => judge.judgeId === deviceId);
 
-        let winner: "red" | "blue" | undefined = undefined;
-        if (myScore?.submitted) {
+        let winner: "red" | "blue" | "draw" | undefined = undefined;
+        if (myScore?.submitted === true) {
           const red = parseInt(myScore.red?.toString() ?? "0");
           const blue = parseInt(myScore.blue?.toString() ?? "0");
-          if (red > 0) winner = "red";
-          else if (blue > 0) winner = "blue";
+          if (red > 0) {
+            winner = "red";
+          } else if (blue > 0) {
+            winner = "blue";
+          } else if (red === 0 && blue === 0) {
+            winner = "draw";
+    }
         }
 
         return {
@@ -428,8 +439,7 @@ const JudgePage: React.FC = () => {
   
 
   // ✅ 점수 전송
-  // ✅ 점수 전송
-const handleScoreSubmit = (roundIndex: number, team: "red" | "blue") => {
+const handleScoreSubmit = (roundIndex: number, team: "red" | "blue" | "draw") => {
   const currentScore = scores[roundIndex];
   const currentWinner = currentScore?.winner;
 
@@ -439,7 +449,7 @@ const handleScoreSubmit = (roundIndex: number, team: "red" | "blue") => {
     
     if(!confirmCancel) return;
 
-    // ✅ 서버에 취소 정보 전송 (0점으로 업데이트)
+    //🔴 서버에 취소 정보 전송 (0점으로 업데이트)
     sendCancelToServer(roundIndex);
     return;
   }
@@ -448,7 +458,7 @@ const handleScoreSubmit = (roundIndex: number, team: "red" | "blue") => {
   sendScoreToServer(roundIndex, team);
 };
 
-// ✅ 취소를 서버에 전송하는 함수
+// ✅ 서버에 점수 '취소'전송
 const sendCancelToServer = (roundIndex: number) => {
   const deviceId = localStorage.getItem("judgeDeviceId");
   if (!deviceId) {
@@ -473,6 +483,8 @@ const sendCancelToServer = (roundIndex: number) => {
     redScore: "0",
     blueScore: "0", 
     judgeId: deviceId,
+    isCancellation: true,
+    isSubmission: false
   };
 
   if (stompClient && stompClient.connected) {
@@ -484,7 +496,7 @@ const sendCancelToServer = (roundIndex: number) => {
 
     //🔴 로컬 상태 업데이트
     const resetScores = [...scores];
-    resetScores[roundIndex] = { red: "0", blue: "0" };
+    resetScores[roundIndex] = { red: "0", blue: "0", winner: undefined };
     
     const resetSubmitted = [...submitted];
     resetSubmitted[roundIndex] = false;
@@ -506,7 +518,7 @@ const sendCancelToServer = (roundIndex: number) => {
 };
 
 // ✅ 정상 점수를 서버에 전송하는 함수
-const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
+const sendScoreToServer = (roundIndex: number, team: "red" | "blue" | "draw") => {
   const deviceId = localStorage.getItem("judgeDeviceId");
   if (!deviceId) {
     alert("❌ deviceId가 없습니다. 다시 로그인해주세요.");
@@ -525,14 +537,26 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
   }
 
   // 🔴 점수 설정
-  const redScore = team === "red" ? "1" : "0";
-  const blueScore = team === "blue" ? "1" : "0";
+  let redScore: string, blueScore: string;
+  
+  if (team === "red") {
+    redScore = "1";
+    blueScore = "0";
+  } else if (team === "blue") {
+    redScore = "0";
+    blueScore = "1";
+  } else {
+    redScore = "0";
+    blueScore = "0";
+  }
 
   const result = {
     roundId,
     redScore,
     blueScore,
     judgeId: deviceId,
+    isDraw: team === "draw",
+    isSubmission: true
   };
 
   if (stompClient && stompClient.connected) {
@@ -570,49 +594,6 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
   }
 };
 
-
-  {/*
-    // ✅ 수정 버튼
-  const handleEdit = (roundIndex: number) => {
-    const newScores = scores.map((score) => ({...score}));
-    const newSubmitted = [...submitted];
-    const newEditing = [...editing];
-
-    newEditing[roundIndex] = true;
-
-    //🔴 zustand에도 저장
-    useJudgeScoreStore.setState({
-      scores: newScores,
-      submitted: newSubmitted,
-      editing: newEditing,
-      currentRoundIndex,
-    });
-
-    setEditing(newEditing);
-
-    const deviceId = localStorage.getItem("judgeDeviceId");
-    if (!deviceId) {
-      alert("❌ deviceId가 없습니다. QR을 다시 찍어주세요.");
-      return;
-    }
-    
-    const roundId = matchInfo?.rounds?.[roundIndex]?.id;
-
-    if(stompClient && stompClient.connected && deviceId && roundId){
-      const modifyMessage = {
-        judgeId: deviceId,
-        roundId: roundId,
-        judgeName: name,
-        status: "MODIFIED"
-      };
-
-      stompClient.publish({
-        destination: "/app/modify",
-        body: JSON.stringify(modifyMessage)
-      });
-    }
-  };
-  */}
   
 
   //✅ 경기 종료 시 로컬스토리지 초기화 버튼
@@ -675,7 +656,7 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
               </span>
             </div>
             <div className="w-full overflow-hidden rounded shadow-md">
-              <div className="grid grid-cols-[0.6fr_1fr_1fr] font-bold text-white text-center">
+              <div className="grid grid-cols-[0.6fr_1.5fr_1.5fr] font-bold text-white text-center">
                 <div />
                 <div className="flex items-center justify-center bg-red-600 border border-gray-300"
                   style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(10vh, 70px)" }}>
@@ -689,7 +670,7 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
               </div>
               <div className="overflow-y-auto" style={{ maxHeight: "min(37vh, 400px)", scrollbarWidth: "none" }}>
                 {Array.from({ length: matchInfo.roundCount }, (_, i) => (
-                  <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr] text-center border border-gray-300">
+                  <div key={i} className="grid grid-cols-[0.6fr_1fr_1fr_1fr] text-center border border-gray-300">
                     <div className="flex items-center justify-center font-bold bg-gray-100 border"
                       style={{ fontSize: "clamp(16px, 3vw, 24px)", height: "min(12vh, 70px)" }}>
                       {i + 1}R
@@ -701,13 +682,30 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
                         className={`w-full h-full font-bold transition-colors duration-200 ${
                           scores[i]?.winner === "red"
                             ? "bg-red-600 text-white hover:bg-red-700 cursor-pointer"
-                            : scores[i]?.winner === "blue"
+                            : scores[i]?.winner === "blue" || scores[i]?.winner === "draw"
                               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                               : "bg-white text-red-600 border-2 border-red-600 hover:bg-red-50 cursor-pointer"
                         }`}
                         style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
                       >
                        레드 우세  
+                      </button>
+                    </div>
+
+                    {/* '동점' 버튼*/}
+                    <div className="flex items-center justify-center bg-white border">
+                      <button
+                        onClick={() => handleScoreSubmit(i, "draw")}
+                        className={`w-full h-full font-bold transition-colors duration-200 ${
+                          scores[i]?.winner === "draw"
+                            ? "bg-gray-800 text-white hover:bg-gray-900 cursor-pointer"
+                            : scores[i]?.winner === "red" || scores[i]?.winner === "blue"
+                              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                              : "bg-white text-black border-2 border-black hover:bg-gray-50 cursor-pointer"
+                        }`}
+                        style={{ fontSize: "clamp(14px, 2.5vw, 20px)", height: "min(12vh, 70px)" }}
+                      >
+                      동점  
                       </button>
                     </div>
 
@@ -718,7 +716,7 @@ const sendScoreToServer = (roundIndex: number, team: "red" | "blue") => {
                         className={`w-full h-full font-bold transition-colors duration-200 ${
                           scores[i]?.winner === "blue"
                             ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
-                            : scores[i]?.winner === "red"
+                            : scores[i]?.winner === "red" || scores[i]?.winner === "draw"
                               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                               : "bg-white text-blue-600 border-2 border-blue-600 hover:bg-blue-50 cursor-pointer"
                         }`}
